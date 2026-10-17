@@ -459,30 +459,11 @@ fun HomeScreen(
             }
         }
     }
-    LaunchedEffect(openAppTime, shareLyricsPermissions) {
-        Logger.w("HomeScreen", "openAppTime: $openAppTime, shareLyricsPermissions: $shareLyricsPermissions")
-        if (openAppTime >= 10 && openAppTime % 10 == 0 && openAppTime <= 50) {
-            showReviewDialog = true
-        } else if ((openAppTime == 1 || openAppTime % 15 == 0) && openAppTime <= 60 && !shareLyricsPermissions) {
-            showRequestShareLyricsPermissions = true
-        } else if (openAppTime == 5) {
-            // Blog promo: one-shot after 5 app opens, bump key suffix to re-promote later
-            if (sharedViewModel.getString(BLOG_PROMO_KEY) != "true") {
-                showBlogPromoDialog = true
-            }
-        } else if (openAppTime % 10 == 6 &&
-            openAppTime <= 46 &&
-            sharedViewModel.getString(FOOTGUNS_STAR_KEY) != "true"
-        ) {
-            // kotlin-footguns star prompt: 6, 16, 26, 36, 46 - one open after each review milestone,
-            // and clear of the share-lyrics (15, 45) and blog-promo (5) milestones
-            showFootgunsDialog = true
-        } else {
-            showReviewDialog = false
-            showFootgunsDialog = false
-            showRequestShareLyricsPermissions = false
-        }
-    }
+    // This fork is a private build shared with friends, not distributed through a store or
+    // upstream's own promo channels - the review nag, blog promo, kotlin-footguns star prompt
+    // and lyrics-sharing request are all upstream's own engagement/promo prompts and have no
+    // one to point at here, so this never raises any of them. The only popup this fork shows
+    // on its own is the update dialog, and only when a genuinely newer GitHub release exists.
 
     val shouldStartPaginate =
         remember {
@@ -591,39 +572,9 @@ fun HomeScreen(
         // Marked at the start, not the end: leaving Home cancels this for good (by then the user is
         // busy elsewhere), and a value written while Home is being left would not be saved.
         promoLaunchDecided = true
-        snapshotFlow { openAppTime }.first { it > 0 }
-        delay(PROMO_SETTLE_MS)
-        sharedViewModel.isCheckingUpdate.first { !it }
-        if (userStarted) {
-            Logger.i("Promo", "Skipped: the user started before the banner's turn")
-            return@LaunchedEffect
-        }
-        val localTracking = sharedViewModel.getLocalTrackingEnabled().first() == TRUE
-        val youTubeLoggedIn = sharedViewModel.getYouTubeLoggedIn().first() == TRUE
-        val shown = sharedViewModel.shownPromos()
-        val promos = sharedViewModel.cachedPromos().first()
-        val eligible = eligiblePromos(promos, VersionManager.getVersionName(), language, localTracking, youTubeLoggedIn)
-        val banner =
-            eligible
-                .firstOrNull { (promo, _) -> promo.id.orEmpty() !in shown }
-                ?.let { (promo, url) -> PromoBannerData(id = promo.id.orEmpty(), imageUrl = url, link = promo.link.orEmpty()) }
-        when {
-            banner == null ->
-                Logger.i(
-                    "Promo",
-                    "Nothing to show: ${eligible.size} of ${promos.size} banners usable here " +
-                        "(local tracking ${if (localTracking) "on" else "off"}, " +
-                        "YouTube ${if (youTubeLoggedIn) "signed in" else "signed out"}), " +
-                        "already shown in ${VersionManager.getVersionName()}: $shown",
-                )
-
-            userStarted -> Logger.i("Promo", "Skipped ${banner.id}: the user started before its turn")
-
-            else -> {
-                Logger.i("Promo", "Picked ${banner.id}, waiting for its turn")
-                promoBanner = banner
-            }
-        }
+        // This fork is a private build, not simpmusic.org's own promo channel - upstream's
+        // "what's new" banners describe upstream's own features and have nowhere of this fork's
+        // own to link to, so this never fetches or shows one.
     }
     // Everything that keeps the banner off screen: any other dialog (it waits its turn behind them),
     // Now Playing, and Home not being in front. On Desktop that only asks for a showing window: one
