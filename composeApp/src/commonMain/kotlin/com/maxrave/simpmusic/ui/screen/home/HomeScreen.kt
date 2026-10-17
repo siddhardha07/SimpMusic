@@ -20,9 +20,11 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -102,8 +104,11 @@ import com.maxrave.common.Config
 import com.maxrave.domain.data.model.browse.album.Track
 import com.maxrave.domain.data.model.home.HomeItem
 import com.maxrave.domain.data.model.home.chart.Chart
+import com.maxrave.domain.data.model.home.chart.ItemArtist
 import com.maxrave.domain.data.model.intent.GenericIntent
 import com.maxrave.domain.data.model.mood.Mood
+import com.maxrave.domain.data.model.spotify.SpotifyPlaylist
+import com.maxrave.domain.data.model.spotify.SpotifyPodcast
 import com.maxrave.domain.extension.now
 import com.maxrave.domain.manager.DataStoreManager.Values.TRUE
 import com.maxrave.domain.mediaservice.handler.PlaylistType
@@ -163,6 +168,10 @@ import com.maxrave.simpmusic.ui.navigation.destination.library.LibraryDynamicPla
 import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PodcastDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PlaylistDestination
+import com.maxrave.simpmusic.ui.navigation.destination.list.SpotifyPlaylistDestination
+import com.maxrave.simpmusic.ui.navigation.destination.list.SpotifyPlaylistsOverviewDestination
+import com.maxrave.simpmusic.ui.navigation.destination.list.SpotifyPodcastsOverviewDestination
+import com.maxrave.simpmusic.ui.navigation.destination.list.YoutubeBestPodcastsOverviewDestination
 import com.maxrave.simpmusic.ui.navigation.destination.login.LoginDestination
 import com.maxrave.simpmusic.ui.screen.library.LibraryDynamicPlaylistType
 import com.maxrave.simpmusic.ui.theme.LocalLiquidGlassEnabled
@@ -217,7 +226,10 @@ import simpmusic.composeapp.generated.resources.let_s_pick_a_playlist_for_you
 import simpmusic.composeapp.generated.resources.let_s_start_with_a_radio
 import simpmusic.composeapp.generated.resources.log_in_to_YouTube
 import simpmusic.composeapp.generated.resources.log_in_warning
+import simpmusic.composeapp.generated.resources.featured_playlists
 import simpmusic.composeapp.generated.resources.mood
+import simpmusic.composeapp.generated.resources.more
+import simpmusic.composeapp.generated.resources.your_spotify_playlists
 import simpmusic.composeapp.generated.resources.party
 import simpmusic.composeapp.generated.resources.play_all
 import simpmusic.composeapp.generated.resources.quick_picks
@@ -225,6 +237,8 @@ import simpmusic.composeapp.generated.resources.relax
 import simpmusic.composeapp.generated.resources.romance
 import simpmusic.composeapp.generated.resources.sad
 import simpmusic.composeapp.generated.resources.sleep
+import simpmusic.composeapp.generated.resources.spotify_podcasts
+import simpmusic.composeapp.generated.resources.youtube_best_podcasts
 import simpmusic.composeapp.generated.resources.top_artists
 import simpmusic.composeapp.generated.resources.warning
 import simpmusic.composeapp.generated.resources.what_is_best_choice_today
@@ -287,6 +301,11 @@ fun HomeScreen(
                 }
             }
         }
+    val spotifyLoggedIn by viewModel.spotifyLoggedIn.collectAsStateWithLifecycle(initialValue = false)
+    val spotifyPlaylists by viewModel.spotifyPlaylists.collectAsStateWithLifecycle()
+    val spotifyFeaturedPlaylists by viewModel.spotifyFeaturedPlaylists.collectAsStateWithLifecycle()
+    val spotifyFeaturedPodcasts by viewModel.spotifyFeaturedPodcasts.collectAsStateWithLifecycle()
+    val youtubeBestPodcasts by viewModel.youtubeBestPodcasts.collectAsStateWithLifecycle()
     val newRelease by viewModel.newRelease.collectAsStateWithLifecycle()
     val chart by viewModel.chart.collectAsStateWithLifecycle()
     val moodMomentAndGenre by viewModel.exploreMoodItem.collectAsStateWithLifecycle()
@@ -772,6 +791,85 @@ fun HomeScreen(
                         state = scrollState,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        item {
+                            // This now renders first, ahead of homeShelves - the hero gradient
+                            // that used to sit behind homeShelves[0] (back when it was the first
+                            // thing on screen) moves here with it, so the glow still starts at
+                            // the literal top of the page instead of leaving a hard colour seam
+                            // between this and whatever shelf comes next.
+                            Box {
+                                Box(
+                                    modifier =
+                                        Modifier
+                                            .matchParentSize()
+                                            .layout { measurable, constraints ->
+                                                val height = constraints.maxHeight + HomeGlowOverflow.roundToPx()
+                                                val placeable =
+                                                    measurable.measure(constraints.copy(minHeight = height, maxHeight = height))
+                                                layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(0, 0) }
+                                            }.angledGradientBackground(listOf(animatedColor, pageBackground), 25f),
+                                ) {
+                                    Box(
+                                        modifier =
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .fillMaxHeight(0.6f)
+                                                .align(Alignment.BottomCenter)
+                                                .background(artworkScrimBrush(pageBackground)),
+                                    )
+                                }
+                                Column {
+                                    // The floating header (avatar/chips/bell/settings) is a
+                                    // separate overlay, not part of this list - whichever item
+                                    // renders first needs its own top inset to clear it.
+                                    Spacer(Modifier.height(with(LocalDensity.current) { topAppBarHeightPx.toDp() }))
+                                    AnimatedVisibility(
+                                        visible = spotifyLoggedIn && !spotifyPlaylists.data.isNullOrEmpty(),
+                                    ) {
+                                        Box(Modifier.padding(horizontal = 15.dp)) {
+                                            SpotifyPlaylistsHomeSection(
+                                                playlists = spotifyPlaylists.data.orEmpty(),
+                                                navController = navController,
+                                            )
+                                        }
+                                    }
+                                    AnimatedVisibility(
+                                        visible = spotifyLoggedIn && !spotifyFeaturedPlaylists.data.isNullOrEmpty(),
+                                    ) {
+                                        Box(Modifier.padding(horizontal = 15.dp)) {
+                                            SpotifyPlaylistsHomeSection(
+                                                playlists = spotifyFeaturedPlaylists.data.orEmpty(),
+                                                navController = navController,
+                                                title = stringResource(Res.string.featured_playlists),
+                                                onShowAll = null,
+                                            )
+                                        }
+                                    }
+                                    AnimatedVisibility(
+                                        visible = spotifyLoggedIn && !spotifyFeaturedPodcasts.data.isNullOrEmpty(),
+                                    ) {
+                                        Box(Modifier.padding(horizontal = 15.dp)) {
+                                            SpotifyPodcastsHomeSection(
+                                                podcasts = spotifyFeaturedPodcasts.data.orEmpty(),
+                                                onShowAll = { navController.navigate(SpotifyPodcastsOverviewDestination) },
+                                            )
+                                        }
+                                    }
+                                    AnimatedVisibility(
+                                        visible = !youtubeBestPodcasts?.shows.isNullOrEmpty(),
+                                    ) {
+                                        Box(Modifier.padding(horizontal = 15.dp)) {
+                                            YoutubePodcastsHomeSection(
+                                                title = youtubeBestPodcasts?.title ?: stringResource(Res.string.youtube_best_podcasts),
+                                                shows = youtubeBestPodcasts?.shows.orEmpty(),
+                                                navController = navController,
+                                                onShowAll = { navController.navigate(YoutubeBestPodcastsOverviewDestination) },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         itemsIndexed(homeShelves, key = { _, item ->
                             item.hashCode().toString() + (mainHomeThumbnail ?: "nothumb")
                         }) { index, item ->
@@ -818,13 +916,8 @@ fun HomeScreen(
                                         Modifier
                                             .padding(horizontal = 15.dp),
                                 ) {
-                                    if (index == 0) {
-                                        Spacer(
-                                            Modifier.height(
-                                                with(LocalDensity.current) { topAppBarHeightPx.toDp() },
-                                            ),
-                                        )
-                                    }
+                                    // The top inset this used to add for index 0 now lives on
+                                    // the Spotify section above, which renders first instead.
                                     Spacer(modifier = Modifier.height(8.dp))
                                     if (item.title == stringResource(Res.string.quick_picks)) {
                                         AnimatedVisibility(
@@ -1353,6 +1446,226 @@ fun QuickPicks(
             scrollState = lazyListState,
             flingBehavior = snapperFlingBehavior,
         )
+    }
+}
+
+@Composable
+fun SpotifyPlaylistsHomeSection(
+    playlists: List<SpotifyPlaylist>,
+    navController: NavController,
+    title: String = stringResource(Res.string.your_spotify_playlists),
+    onShowAll: (() -> Unit)? = { navController.navigate(SpotifyPlaylistsOverviewDestination) },
+) {
+    Column(Modifier.padding(vertical = 8.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = title,
+                style = typo().headlineMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (onShowAll != null) {
+                TextButton(
+                    onClick = onShowAll,
+                    colors = ButtonDefaults.textButtonColors().copy(contentColor = MaterialTheme.colorScheme.onSurface),
+                ) {
+                    Text(stringResource(Res.string.more), style = typo().bodySmall)
+                }
+            }
+        }
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(vertical = 8.dp),
+        ) {
+            items(playlists, key = { it.id }) { playlist ->
+                Column(
+                    Modifier
+                        .width(132.dp)
+                        .clickable { navController.navigate(SpotifyPlaylistDestination(playlist.id, playlist.name)) },
+                ) {
+                    AsyncImage(
+                        model =
+                            ImageRequest
+                                .Builder(LocalPlatformContext.current)
+                                .data(playlist.imageUrl)
+                                .crossfade(300)
+                                .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier =
+                            Modifier
+                                .aspectRatio(1f)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp)),
+                    )
+                    Text(
+                        text = playlist.name,
+                        style = typo().titleSmall,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        maxLines = 1,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Spotify podcast shows pulled from the editorial home feed (see
+ * [com.maxrave.data.mapping.toFeaturedPodcasts]). There's no in-app Spotify show/episode
+ * screen - Spotify playback isn't implemented in this app - so tapping a card hands off to
+ * Spotify's own web page for the show instead of trying to browse/play it here.
+ */
+@Composable
+fun SpotifyPodcastsHomeSection(
+    podcasts: List<SpotifyPodcast>,
+    onShowAll: (() -> Unit)?,
+    title: String = stringResource(Res.string.spotify_podcasts),
+) {
+    Column(Modifier.padding(vertical = 8.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = title,
+                style = typo().headlineMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (onShowAll != null) {
+                TextButton(
+                    onClick = onShowAll,
+                    colors = ButtonDefaults.textButtonColors().copy(contentColor = MaterialTheme.colorScheme.onSurface),
+                ) {
+                    Text(stringResource(Res.string.more), style = typo().bodySmall)
+                }
+            }
+        }
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(vertical = 8.dp),
+        ) {
+            items(podcasts, key = { it.id }) { podcast ->
+                Column(
+                    Modifier
+                        .width(132.dp)
+                        .clickable { runCatching { openUrl("https://open.spotify.com/show/${podcast.id}") } },
+                ) {
+                    AsyncImage(
+                        model =
+                            ImageRequest
+                                .Builder(LocalPlatformContext.current)
+                                .data(podcast.imageUrl)
+                                .crossfade(300)
+                                .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier =
+                            Modifier
+                                .aspectRatio(1f)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp)),
+                    )
+                    Text(
+                        text = podcast.name,
+                        style = typo().titleSmall,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        maxLines = 1,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                    podcast.publisherName?.let { publisher ->
+                        Text(
+                            text = publisher,
+                            style = typo().bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * YouTube Music's own weekly top podcast shows (currently only the US chart carries this -
+ * see [com.maxrave.domain.data.model.home.chart.ChartPodcasts]'s doc comment). Unlike the
+ * Spotify podcasts row, these open the app's own podcast screen since YouTube Music podcast
+ * playback is already fully supported here.
+ */
+@Composable
+fun YoutubePodcastsHomeSection(
+    shows: List<ItemArtist>,
+    navController: NavController,
+    onShowAll: (() -> Unit)?,
+    title: String = stringResource(Res.string.youtube_best_podcasts),
+) {
+    Column(Modifier.padding(vertical = 8.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = title,
+                style = typo().headlineMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (onShowAll != null) {
+                TextButton(
+                    onClick = onShowAll,
+                    colors = ButtonDefaults.textButtonColors().copy(contentColor = MaterialTheme.colorScheme.onSurface),
+                ) {
+                    Text(stringResource(Res.string.more), style = typo().bodySmall)
+                }
+            }
+        }
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(vertical = 8.dp),
+        ) {
+            items(shows, key = { it.browseId }) { show ->
+                Column(
+                    Modifier
+                        .width(132.dp)
+                        .clickable { navController.navigate(PodcastDestination(podcastId = show.browseId)) },
+                ) {
+                    AsyncImage(
+                        model =
+                            ImageRequest
+                                .Builder(LocalPlatformContext.current)
+                                .data(show.thumbnails.lastOrNull()?.url)
+                                .crossfade(300)
+                                .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier =
+                            Modifier
+                                .aspectRatio(1f)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp)),
+                    )
+                    Text(
+                        text = show.title,
+                        style = typo().titleSmall,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        maxLines = 1,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                    Text(
+                        text = show.subscribers,
+                        style = typo().bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
     }
 }
 

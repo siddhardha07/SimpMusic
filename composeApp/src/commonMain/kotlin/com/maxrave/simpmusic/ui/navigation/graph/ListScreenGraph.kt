@@ -15,8 +15,14 @@ import com.maxrave.simpmusic.ui.navigation.destination.list.MoreAlbumsDestinatio
 import com.maxrave.simpmusic.ui.navigation.destination.list.PlaylistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PodcastDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.SpotifyPlaylistDestination
+import com.maxrave.simpmusic.ui.navigation.destination.list.SpotifyPlaylistsOverviewDestination
+import com.maxrave.simpmusic.ui.navigation.destination.list.SpotifyPodcastsOverviewDestination
+import com.maxrave.simpmusic.ui.navigation.destination.list.YoutubeBestPodcastsOverviewDestination
 import com.maxrave.simpmusic.ui.screen.library.LocalPlaylistScreen
 import com.maxrave.simpmusic.ui.screen.library.SpotifyPlaylistScreen
+import com.maxrave.simpmusic.ui.screen.library.SpotifyPlaylistsOverviewScreen
+import com.maxrave.simpmusic.ui.screen.library.SpotifyPodcastsOverviewScreen
+import com.maxrave.simpmusic.ui.screen.library.YoutubeBestPodcastsOverviewScreen
 import com.maxrave.simpmusic.ui.screen.other.AlbumScreen
 import com.maxrave.simpmusic.ui.screen.other.ArtistScreen
 import com.maxrave.simpmusic.ui.screen.other.BrowseScreen
@@ -104,6 +110,21 @@ fun NavGraphBuilder.listScreenGraph(
                 playlistName = data.name,
                 navController = navController,
             )
+        }
+    }
+    composable<SpotifyPlaylistsOverviewDestination> {
+        ForceDarkContent {
+            SpotifyPlaylistsOverviewScreen(navController = navController)
+        }
+    }
+    composable<SpotifyPodcastsOverviewDestination> {
+        ForceDarkContent {
+            SpotifyPodcastsOverviewScreen(navController = navController)
+        }
+    }
+    composable<YoutubeBestPodcastsOverviewDestination> {
+        ForceDarkContent {
+            YoutubeBestPodcastsOverviewScreen(navController = navController)
         }
     }
 }

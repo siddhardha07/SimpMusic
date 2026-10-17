@@ -27,6 +27,9 @@ import com.maxrave.simpmusic.viewModel.SettingsViewModel
 import com.maxrave.simpmusic.viewModel.SharedViewModel
 import com.maxrave.simpmusic.viewModel.SongSelectionViewModel
 import com.maxrave.simpmusic.viewModel.SpotifyPlaylistViewModel
+import com.maxrave.simpmusic.viewModel.SpotifyPlaylistsOverviewViewModel
+import com.maxrave.simpmusic.viewModel.SpotifyPodcastsOverviewViewModel
+import com.maxrave.simpmusic.viewModel.YoutubeBestPodcastsOverviewViewModel
 import com.maxrave.simpmusic.viewModel.TasteViewModel
 import com.maxrave.simpmusic.viewModel.WrappedViewModel
 import org.koin.core.module.dsl.viewModel
@@ -49,6 +52,7 @@ val viewModelModule =
         }
         single {
             SearchViewModel(
+                get(),
                 get(),
                 get(),
                 get(),
@@ -109,6 +113,7 @@ val viewModelModule =
             HomeViewModel(
                 get(),
                 get(),
+                get(),
             )
         }
         viewModel {
@@ -154,6 +159,21 @@ val viewModelModule =
         }
         viewModel {
             SpotifyPlaylistViewModel(
+                get(),
+            )
+        }
+        viewModel {
+            SpotifyPlaylistsOverviewViewModel(
+                get(),
+            )
+        }
+        viewModel {
+            SpotifyPodcastsOverviewViewModel(
+                get(),
+            )
+        }
+        viewModel {
+            YoutubeBestPodcastsOverviewViewModel(
                 get(),
             )
         }

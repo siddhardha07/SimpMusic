@@ -37,6 +37,9 @@ class LogInViewModel(
                 }.let {
                     if (it["sp_dc"].isNullOrEmpty()) Logger.w("Auth", "Spotify: sign-in finished without an sp_dc cookie")
                     dataStoreManager.setSpdc(it["sp_dc"] ?: "")
+                    // sp_t rides along on the same cookie string - needed for the Home
+                    // screen's featured-playlists call, which sp_dc alone doesn't cover.
+                    dataStoreManager.setSpT(it["sp_t"] ?: "")
                     _spotifyStatus.value = true
                 }
         }

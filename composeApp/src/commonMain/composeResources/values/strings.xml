@@ -122,6 +122,12 @@
     <string name="lyrics">Lyrics</string>
     <string name="all">All</string>
     <string name="videos">Videos</string>
+    <string name="search_source_all">All sources</string>
+    <string name="search_source_youtube">YouTube</string>
+    <string name="search_source_spotify">Spotify</string>
+    <string name="search_source_other">Other platforms</string>
+    <string name="search_source_filter">Search source</string>
+    <string name="search_source_other_coming_soon">No other platforms added yet</string>
     <string name="content">Content</string>
     <string name="storage">Storage</string>
     <string name="player_cache">Player Cache</string>
@@ -258,6 +264,9 @@
     <string name="no_YouTube_playlists">No YouTube Playlists</string>
     <string name="your_spotify_playlists">Your Spotify Playlists</string>
     <string name="no_spotify_playlists">No Spotify playlists found</string>
+    <string name="spotify_podcasts">Spotify Podcasts</string>
+    <string name="no_spotify_podcasts">No Spotify podcasts found</string>
+    <string name="youtube_best_podcasts">Best Podcasts</string>
     <string name="spotify_track_unavailable">Not found on YouTube Music</string>
     <string name="resolving_spotify_track">Finding a match…</string>
     <string name="track">track(s)</string>

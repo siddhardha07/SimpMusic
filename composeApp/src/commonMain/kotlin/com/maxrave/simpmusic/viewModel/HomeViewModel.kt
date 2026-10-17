@@ -10,7 +10,12 @@ import com.maxrave.domain.data.model.home.chart.Chart
 import com.maxrave.domain.data.model.mood.Mood
 import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.domain.manager.DataStoreManager.Values.TRUE
+import com.maxrave.domain.data.model.home.chart.ChartPodcasts
+import com.maxrave.domain.data.model.spotify.SpotifyPlaylist
+import com.maxrave.domain.data.model.spotify.SpotifyPodcast
 import com.maxrave.domain.repository.HomeRepository
+import com.maxrave.domain.repository.SpotifyLibraryRepository
+import com.maxrave.domain.utils.LocalResource
 import com.maxrave.domain.utils.Resource
 import com.maxrave.logger.Logger
 import com.maxrave.simpmusic.viewModel.base.BaseViewModel
@@ -37,6 +42,7 @@ import simpmusic.composeapp.generated.resources.view_count
 class HomeViewModel(
     private val dataStoreManager: DataStoreManager,
     private val homeRepository: HomeRepository,
+    private val spotifyLibraryRepository: SpotifyLibraryRepository,
 ) : BaseViewModel() {
     private val _homeItemList: MutableStateFlow<List<HomeItem>> =
         MutableStateFlow(arrayListOf())
@@ -50,6 +56,52 @@ class HomeViewModel(
 
     private val _exploreMoodItem: MutableStateFlow<Mood?> = MutableStateFlow(null)
     val exploreMoodItem: StateFlow<Mood?> = _exploreMoodItem
+
+    val spotifyLoggedIn = spotifyLibraryRepository.isLoggedIn()
+    private val _spotifyPlaylists: MutableStateFlow<LocalResource<List<SpotifyPlaylist>>> =
+        MutableStateFlow(LocalResource.Loading())
+    val spotifyPlaylists: StateFlow<LocalResource<List<SpotifyPlaylist>>> = _spotifyPlaylists
+
+    private val _spotifyFeaturedPlaylists: MutableStateFlow<LocalResource<List<SpotifyPlaylist>>> =
+        MutableStateFlow(LocalResource.Loading())
+    val spotifyFeaturedPlaylists: StateFlow<LocalResource<List<SpotifyPlaylist>>> = _spotifyFeaturedPlaylists
+
+    private val _spotifyFeaturedPodcasts: MutableStateFlow<LocalResource<List<SpotifyPodcast>>> =
+        MutableStateFlow(LocalResource.Loading())
+    val spotifyFeaturedPodcasts: StateFlow<LocalResource<List<SpotifyPodcast>>> = _spotifyFeaturedPodcasts
+
+    fun getSpotifyHomePlaylists() {
+        viewModelScope.launch {
+            if (spotifyLibraryRepository.isLoggedIn().first()) {
+                spotifyLibraryRepository.getUserPlaylists(limit = 10).collect { _spotifyPlaylists.value = it }
+            }
+        }
+        viewModelScope.launch {
+            if (spotifyLibraryRepository.isLoggedIn().first()) {
+                spotifyLibraryRepository.getFeaturedPlaylists(limit = 20).collect { _spotifyFeaturedPlaylists.value = it }
+            }
+        }
+        viewModelScope.launch {
+            if (spotifyLibraryRepository.isLoggedIn().first()) {
+                spotifyLibraryRepository.getFeaturedPodcasts(limit = 20).collect { _spotifyFeaturedPodcasts.value = it }
+            }
+        }
+    }
+
+    // The weekly top podcast shows chart only exists for the US chart (see [ChartPodcasts]'s
+    // doc comment) - fetched with a hardcoded region rather than following the user's own
+    // chart country picker, so this row doesn't blank out just because they picked a different
+    // country there.
+    private val _youtubeBestPodcasts: MutableStateFlow<ChartPodcasts?> = MutableStateFlow(null)
+    val youtubeBestPodcasts: StateFlow<ChartPodcasts?> = _youtubeBestPodcasts
+
+    fun getYoutubeBestPodcasts() {
+        viewModelScope.launch {
+            homeRepository.getChartData("US").collect { values ->
+                _youtubeBestPodcasts.value = (values as? Resource.Success)?.data?.podcasts
+            }
+        }
+    }
     private val _accountInfo: MutableStateFlow<Pair<String?, String?>?> = MutableStateFlow(null)
     val accountInfo: StateFlow<Pair<String?, String?>?> = _accountInfo
 
@@ -95,6 +147,8 @@ class HomeViewModel(
             _showLogInAlert.update { true }
         }
         homeJob = Job()
+        getSpotifyHomePlaylists()
+        getYoutubeBestPodcasts()
         viewModelScope.launch {
             regionCodeChart.value = dataStoreManager.chartKey.first()
             exploreChart(regionCodeChart.value ?: "ZZ")
