@@ -42,6 +42,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -94,6 +96,8 @@ import com.maxrave.domain.data.model.intent.GenericIntent
 import com.maxrave.domain.data.model.searchResult.albums.AlbumsResult
 import com.maxrave.domain.data.model.searchResult.artists.ArtistsResult
 import com.maxrave.domain.data.model.searchResult.playlists.PlaylistsResult
+import com.maxrave.domain.data.model.searchResult.spotify.SpotifyPlaylistSearchResult
+import com.maxrave.domain.data.model.searchResult.spotify.SpotifyTrackSearchResult
 import com.maxrave.domain.data.model.searchResult.songs.SongsResult
 import com.maxrave.domain.data.model.searchResult.videos.VideosResult
 import com.maxrave.domain.data.type.SearchResultType
@@ -128,19 +132,23 @@ import com.maxrave.simpmusic.ui.component.selection.SongSelectionTopAppBar
 import com.maxrave.simpmusic.ui.component.selection.rememberSongSelectionState
 import com.maxrave.simpmusic.ui.icon.ArrowBackIosNew
 import com.maxrave.simpmusic.ui.icon.ArrowOutward
+import com.maxrave.simpmusic.ui.icon.Check
 import com.maxrave.simpmusic.ui.icon.Close
 import com.maxrave.simpmusic.ui.icon.History
 import com.maxrave.simpmusic.ui.icon.Search
 import com.maxrave.simpmusic.ui.icon.SimpIcons
+import com.maxrave.simpmusic.ui.icon.Tune
 import com.maxrave.simpmusic.ui.navigation.destination.home.MoodDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.AlbumDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PlaylistDestination
+import com.maxrave.simpmusic.ui.navigation.destination.list.SpotifyPlaylistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PodcastDestination
 import com.maxrave.simpmusic.ui.navigation.destination.search.SearchDestination
 import com.maxrave.simpmusic.ui.theme.LocalLiquidGlassEnabled
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.SearchScreenUIState
+import com.maxrave.simpmusic.viewModel.SearchSource
 import com.maxrave.simpmusic.viewModel.SearchType
 import com.maxrave.simpmusic.viewModel.SearchViewModel
 import com.maxrave.simpmusic.viewModel.SharedViewModel
@@ -167,6 +175,7 @@ import simpmusic.composeapp.generated.resources.playlists
 import simpmusic.composeapp.generated.resources.podcasts
 import simpmusic.composeapp.generated.resources.retry
 import simpmusic.composeapp.generated.resources.search_for
+import simpmusic.composeapp.generated.resources.search_source_filter
 import simpmusic.composeapp.generated.resources.search_for_songs_artists_albums_playlists_and_more
 import simpmusic.composeapp.generated.resources.song
 import simpmusic.composeapp.generated.resources.videos
@@ -909,6 +918,89 @@ fun SearchScreen(
                                                                         },
                                                                     )
                                                                 }
+
+                                                                is SpotifyPlaylistSearchResult -> {
+                                                                    val playlist = result.playlist
+                                                                    Row(
+                                                                        modifier =
+                                                                            Modifier
+                                                                                .fillMaxWidth()
+                                                                                .clickable {
+                                                                                    navController.navigate(
+                                                                                        SpotifyPlaylistDestination(playlist.id, playlist.name),
+                                                                                    )
+                                                                                }.padding(horizontal = 12.dp, vertical = 8.dp),
+                                                                        verticalAlignment = Alignment.CenterVertically,
+                                                                    ) {
+                                                                        AsyncImage(
+                                                                            model =
+                                                                                ImageRequest
+                                                                                    .Builder(LocalPlatformContext.current)
+                                                                                    .data(playlist.imageUrl)
+                                                                                    .crossfade(200)
+                                                                                    .build(),
+                                                                            contentDescription = null,
+                                                                            contentScale = ContentScale.Crop,
+                                                                            modifier =
+                                                                                Modifier
+                                                                                    .size(56.dp)
+                                                                                    .clip(RoundedCornerShape(6.dp)),
+                                                                        )
+                                                                        Column(Modifier.padding(start = 12.dp)) {
+                                                                            Text(
+                                                                                text = playlist.name,
+                                                                                style = typo().bodyLarge,
+                                                                                maxLines = 1,
+                                                                            )
+                                                                            Text(
+                                                                                text = playlist.ownerName ?: "Spotify",
+                                                                                style = typo().bodySmall,
+                                                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                                maxLines = 1,
+                                                                            )
+                                                                        }
+                                                                    }
+                                                                }
+
+                                                                is SpotifyTrackSearchResult -> {
+                                                                    val track = result.track
+                                                                    Row(
+                                                                        modifier =
+                                                                            Modifier
+                                                                                .fillMaxWidth()
+                                                                                .clickable { searchViewModel.playSpotifyTrack(track) }
+                                                                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                                                                        verticalAlignment = Alignment.CenterVertically,
+                                                                    ) {
+                                                                        AsyncImage(
+                                                                            model =
+                                                                                ImageRequest
+                                                                                    .Builder(LocalPlatformContext.current)
+                                                                                    .data(track.albumImageUrl)
+                                                                                    .crossfade(200)
+                                                                                    .build(),
+                                                                            contentDescription = null,
+                                                                            contentScale = ContentScale.Crop,
+                                                                            modifier =
+                                                                                Modifier
+                                                                                    .size(56.dp)
+                                                                                    .clip(RoundedCornerShape(6.dp)),
+                                                                        )
+                                                                        Column(Modifier.padding(start = 12.dp)) {
+                                                                            Text(
+                                                                                text = track.title,
+                                                                                style = typo().bodyLarge,
+                                                                                maxLines = 1,
+                                                                            )
+                                                                            Text(
+                                                                                text = track.artists.joinToString(", ").ifEmpty { "Spotify" },
+                                                                                style = typo().bodySmall,
+                                                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                                maxLines = 1,
+                                                                            )
+                                                                        }
+                                                                    }
+                                                                }
                                                             }
                                                         }
                                                         // Space at bottom to account for bottom navigation and mini player
@@ -1155,27 +1247,74 @@ fun SearchScreen(
                 // underneath the whole thing, and the glass has something to blur.
                 AnimatedVisibility(visible = searchUIType == SearchUIType.SEARCH_RESULTS) {
                     Row(
-                        modifier =
-                            Modifier
-                                .horizontalScroll(chipRowState)
-                                .padding(top = 10.dp)
-                                .padding(horizontal = 12.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        SearchType.entries.forEach { id ->
-                            val isSelected = id == searchScreenState.searchType
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Chip(
-                                isAnimated = uiState is SearchScreenUIState.Loading,
-                                isSelected = isSelected,
-                                text = stringResource(id.toStringRes()),
-                                backdrop = chipBackdrop,
-                            ) {
-                                searchViewModel.setSearchType(id)
+                        Row(
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .horizontalScroll(chipRowState)
+                                    .padding(horizontal = 12.dp),
+                        ) {
+                            SearchType.entries.forEach { id ->
+                                val isSelected = id == searchScreenState.searchType
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Chip(
+                                    isAnimated = uiState is SearchScreenUIState.Loading,
+                                    isSelected = isSelected,
+                                    text = stringResource(id.toStringRes()),
+                                    backdrop = chipBackdrop,
+                                ) {
+                                    searchViewModel.setSearchType(id)
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
                             }
-                            Spacer(modifier = Modifier.width(4.dp))
                         }
+                        SearchSourceFilterButton(
+                            selected = searchScreenState.searchSource,
+                            onSelected = { source -> searchViewModel.setSearchSource(source, searchText) },
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Compact dropdown (Tune icon) sitting fixed at the right of the type-chip row, independent of
+ * [SearchType] - picks which backend(s) the "All" chip's merged search is built from.
+ */
+@Composable
+fun SearchSourceFilterButton(
+    selected: SearchSource,
+    onSelected: (SearchSource) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier) {
+        IconButton(onClick = { expanded = true }) {
+            Icon(
+                imageVector = SimpIcons.Tune,
+                contentDescription = stringResource(Res.string.search_source_filter),
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            SearchSource.entries.forEach { source ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(source.toStringRes())) },
+                    trailingIcon = {
+                        if (source == selected) {
+                            Icon(imageVector = SimpIcons.Check, contentDescription = null)
+                        }
+                    },
+                    onClick = {
+                        expanded = false
+                        onSelected(source)
+                    },
+                )
             }
         }
     }
