@@ -126,9 +126,6 @@
     <string name="developer_blog">บล็อกนักพัฒนา</string>
     <string name="developer_blog_tagline">อ่านบันทึกจากผู้พัฒนา บทแนะนำ &amp; เบื้องหลังการทำงาน</string>
     <string name="blog_promo_title">สิ่งใหม่จากผู้พัฒนา</string>
-    <string name="blog_promo_message">ผมเพิ่งเปิดบล็อกส่วนตัวที่ maxrave.dev
-เอาไว้แชร์เรื่องราวเบื้องหลัง SimpMusic เจาะลึกด้าน music-tech และบันทึกด้านวิศวกรรมต่าง ๆ
-แวะเข้าไปอ่านกันได้ถ้าสนใจ ✨</string>
     <string name="visit_blog">เยี่ยมชมบล็อก</string>
     <string name="paypal">PayPal</string>
     <string name="title">ชื่อ</string>
@@ -165,9 +162,6 @@
     <string name="balance_media_loudness">ปรับสมดุลความดังของสื่อ</string>
     <string name="normalize_volume">ปรับระดับเสียงให้เท่ากัน</string>
     <string name="audio">เสียง</string>
-    <string name="no_equalizer">อุปกรณ์ของคุณไม่มีอีควอไลเซอร์</string>
-    <string name="open_system_equalizer">เปิดระบบอีควอไลเซอร์</string>
-    <string name="use_your_system_equalizer">ใช้อีควอไลเซอร์ในระบบของคุณ</string>
     <string name="streaming_data_provider_piped">ผู้ให้บริการข้อมูลแบบสตรีมมิ่ง (Piped)</string>
     <string name="itag">Itag</string>
     <string name="mime_type">ประเภท MIME</string>
@@ -305,6 +299,23 @@
     <string name="your_music_is_always_up_to_date">เพลงของคุณได้รับการอัพเดทแล้ว</string>
     <string name="youtube_account">บัญชี YouTube</string>
     <string name="manage_your_youtube_accounts">จัดการบัญชี YouTube ของคุณ</string>
+    <string name="sync_follow_to_youtube">ซิงค์การติดตามศิลปินกับ YouTube</string>
+    <string name="equalizer">อีควอไลเซอร์</string>
+    <string name="equalizer_description">ปรับแต่งเสียงด้วยเส้นโค้ง 10 แบนด์</string>
+    <string name="equalizer_preamp">พรีแอมป์</string>
+    <string name="equalizer_presets">พรีเซ็ต</string>
+    <string name="equalizer_preset_custom">แบบกำหนดเอง</string>
+    <string name="equalizer_reset">รีเซ็ต</string>
+    <string name="equalizer_autoeq_choose">เลือกชุดหูฟัง</string>
+    <string name="equalizer_autoeq_search">รุ่นชุดหูฟัง</string>
+    <string name="equalizer_autoeq_downloading">กำลังดาวน์โหลดรายการโปรไฟล์ AutoEq...</string>
+    <string name="equalizer_autoeq_unavailable">ไม่สามารถเชื่อมต่อกับ AutoEq ได้ ตรวจสอบการเชื่อมต่อและลองอีกครั้ง</string>
+    <string name="equalizer_autoeq_empty">ไม่มีพบโปรไฟล์ชุดหูฟังที่ตรงกับชื่อนี้</string>
+    <string name="equalizer_autoeq_failed">ไม่สามารถโหลดโปรไฟล์นี้ได้ — ต้องมีเชื่อมต่ออินเทอร์เน็ตในครั้งแรก</string>
+    <string name="sync_follow_to_youtube_description">การติดตามศิลปินใน SimpMusic จะเป็นการติดตามช่องของศิลปินบนบัญชี YouTube ของคุณด้วย</string>
+    <string name="sync_follow_failed">ไม่สามารถอัปเดตการสมัครสมาชิก YouTube ของคุณ</string>
+    <string name="subscribed_on_youtube">ติดตามแล้วบน YouTube</string>
+    <string name="unsubscribed_on_youtube">ยกเลิกการติดตามแล้วบน YouTube</string>
     <string name="no_account">ยังไม่มีบัญชีผู้ใช้</string>
     <string name="add_an_account">เพิ่มบัญชีผู้ใช้</string>
     <string name="signed_in">ลงชื่อเข้าใช้แล้ว</string>
@@ -323,6 +334,7 @@
     <string name="spotify_lyrícs_info">เนื้อเพลงเพิ่มเติมแบบไม่มีคำแปล</string>
     <string name="enable_canvas">เปิดใช้งาน Canvas</string>
     <string name="canvas_info">แสดง Spotify Canvas ใน SimpMusic</string>
+    <string name="enable_animated_artwork">ปกภาพเคลื่อนไหว</string>
     <string name="spotify_lyrics_provider">เนื้อเพลงโดย Spotify</string>
     <string name="offline_mode">โหมดออฟไลน์</string>
     <string name="added_to_youtube_liked">เพิ่มถูกใจไปยัง YouTube แล้ว</string>
@@ -360,8 +372,6 @@
     <string name="theme_color_wallpaper">วอลเปเปอร์</string>
     <string name="theme_color_custom">กำหนดเอง</string>
     <string name="custom_color">กำหนดสี</string>
-    <string name="translucent_bottom_navigation_bar">แถบนำทางด้านล่างโปร่งแสง</string>
-    <string name="you_can_see_the_content_below_the_bottom_bar">คุณสามารถดูเนื้อหาได้ที่แถบด้านล่าง</string>
     <string name="donation">ถ้าคุณชอบแอปนี้ สามารถเลี้ยงกาแฟให้ฉันได้</string>
     <string name="relax">ผ่อนคลาย</string>
     <string name="sleep">นอน</string>
@@ -443,7 +453,7 @@
     <string name="ai_api_key">คีย์ API สำหรับ AI ของคุณ</string>
     <string name="invalid_api_key">คีย์ API ไม่ถูกต้อง</string>
     <string name="custom_ai_model_id">รหัสโมเดล AI ที่ปรับแต่งเอง</string>
-    <string name="default_models">โมเดลเริ่มต้นคือ \"gemini-2.0-flash\" และ \"gpt-4o\"</string>
+    <string name="default_models">โมเดลเริ่มต้นคือ "gemini-2.0-flash" และ "gpt-4o"</string>
     <string name="invalid">ไม่ถูกต้อง</string>
     <string name="custom_model_id_messages">กรุณากรอกรหัสโมเดลที่ถูกต้องจากผู้ให้บริการ AI ของคุณ</string>
     <string name="favorite_podcasts">พอดแคสต์ที่ชื่นชอบ</string>
@@ -513,8 +523,6 @@
     <string name="enable_rich_presence">เปิดใช้งาน Rich Presence</string>
     <string name="rich_presence_info">แสดงข้อมูลการเล่นสื่อบนโปรไฟล์ Discord ของคุณ</string>
     <string name="youtube_liked_music">เพลงที่ถูกใจบน YouTube</string>
-    <string name="keep_service_alive">คงการทำงานของบริการ</string>
-    <string name="keep_service_alive_description">รักษาการทำงานของเครื่องเล่นเพลง เพื่อหลีกเลี่ยงการถูกระบบปิดเพลง</string>
     <string name="keep_your_youtube_playlist_offline">แสดงเพลย์ลิสต์ YouTube แม้ไม่ได้เชื่อมต่ออินเทอร์เน็ต</string>
     <string name="keep_your_youtube_playlist_offline_description">จัดเก็บเพลย์ลิสต์ YouTube ในเครื่องเพื่อใช้งานแบบออฟไลน์</string>
     <string name="combine_local_and_youtube_liked_songs">ใช้เพลงที่ถูกใจบน YouTube แทนรายการโปรดเมื่อเข้าสู่ระบบ</string>
@@ -528,6 +536,18 @@
     <string name="songs_played">เพลงที่เล่นแล้ว</string>
     <string name="total_listened_time">เวลาที่ฟังทั้งหมด</string>
     <string name="seconds">วินาที</string>
+    <string name="month_short_jan">ม.ค.</string>
+    <string name="month_short_feb">ก.พ.</string>
+    <string name="month_short_may">พ.ค.</string>
+    <string name="month_short_jun">มิ.ย.</string>
+    <string name="month_short_jul">ก.ค.</string>
+    <string name="month_short_aug">ส.ค.</string>
+    <string name="month_short_sep">ก.ย.</string>
+    <string name="month_short_oct">ต.ค.</string>
+    <string name="month_short_nov">พ.ย.</string>
+    <string name="month_short_dec">ธ.ค.</string>
+    <string name="analytics_quick_facts">เกร็ดน่ารู้</string>
+    <string name="analytics_songs">เพลง</string>
     <string name="your_recently_played">เพลงที่คุณเล่นล่าสุด</string>
     <string name="your_top_artists">ศิลปินที่คุณฟังมากที่สุด</string>
     <string name="your_top_albums">อัลบั้มที่คุณฟังมากที่สุด</string>
@@ -563,4 +583,37 @@
     <string name="listen_to_downloaded">ฟังเพลงที่ดาวน์โหลด</string>
     <string name="playing_on_device">กำลังเล่นบน %1$s</string>
     <string name="not_available_while_casting">ไม่สามารถใช้งานได้ในระหว่างที่ casting</string>
+    <string name="import_reading_file">กำลังอ่านไฟล์...</string>
+    <string name="import_progress_songs">%1$d จาก %2$d เพลง</string>
+    <string name="import_failed">นำเข้าไม่สำเร็จ</string>
+    <string name="analytics">การวิเคราะห์</string>
+    <string name="select_all">เลือกทั้งหมด</string>
+    <!-- Listen Together -->
+    <string name="lt_not_connected">ไม่ได้เชื่อมต่อ</string>
+    <string name="lt_suggestions">เพลงแนะนำ</string>
+    <string name="lt_leave_room">ออกจากห้อง</string>
+    <string name="lt_server">เซิร์ฟเวอร์</string>
+    <string name="lt_custom_server">เซิร์ฟเวอร์แบบกำหนดเอง</string>
+    <string name="lt_custom_server_desc">ป้อนที่อยู่ wss:// ของคุณเอง</string>
+    <string name="lt_unblock">ปลดบล็อค</string>
+    <string name="lt_kick">ลบออกจากห้อง</string>
+    <string name="lt_block">บล็อคถาวร</string>
+    <string name="share_lyrics">แชร์เนื้อเพลง</string>
+    <string name="share_lyrics_select_title">เลือกบรรทัด</string>
+    <string name="share_lyrics_selected_count">เลือกแล้ว %1$d บรรทัด</string>
+    <string name="share_lyrics_continue">ดำเนินการต่อ</string>
+    <string name="share_lyrics_max_reached">คุณสามารถแชร์ได้สูงสุด %1$d บรรทัด</string>
+    <string name="share_lyrics_save">บันทึกรูปภาพ</string>
+    <string name="share_lyrics_share_action">แชร์</string>
+    <string name="share_lyrics_saved">บันทึกไปยังคลังภาพแล้ว</string>
+    <string name="share_lyrics_saved_desktop">บันทึกไปยังโฟลเดอร์ downloads แล้ว</string>
+    <string name="share_lyrics_save_failed">ไม่สามารถบันทึกภาพได้</string>
+    <string name="share_lyrics_share_failed">ไม่สามารถแชร์ภาพได้</string>
+    <string name="share_lyrics_background">พื้นหลัง</string>
+    <string name="share_lyrics_permission_denied">ต้องอนุญาตสิทธิ์การเข้าถึงที่เก็บข้อมูลเพื่อบันทึกภาพ</string>
+    <string name="share_lyrics_no_lyrics">เพลงนี้ไม่มีเนื้อเพลงให้แชร์</string>
+    <string name="wrapped_tap_to_begin">แตะเพื่อเริ่มต้น</string>
+    <string name="wrapped_tap_to_continue">แตะเพื่อดำเนินการต่อ</string>
+    <string name="wrapped_share">แชร์</string>
+    <string name="wrapped_save">บันทึก</string>
 </resources>

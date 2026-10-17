@@ -13,6 +13,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,6 +74,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -86,6 +90,7 @@ import coil3.request.crossfade
 import com.maxrave.common.Config
 import com.maxrave.domain.data.entities.SongEntity
 import com.maxrave.domain.data.model.browse.album.Track
+import com.maxrave.domain.data.model.intent.GenericIntent
 import com.maxrave.domain.data.model.searchResult.albums.AlbumsResult
 import com.maxrave.domain.data.model.searchResult.artists.ArtistsResult
 import com.maxrave.domain.data.model.searchResult.playlists.PlaylistsResult
@@ -98,12 +103,18 @@ import com.maxrave.domain.utils.connectArtists
 import com.maxrave.domain.utils.toSongEntity
 import com.maxrave.domain.utils.toTrack
 import com.maxrave.simpmusic.Platform
+import com.maxrave.simpmusic.expect.ui.PlatformBackHandler
+import com.maxrave.simpmusic.expect.ui.layerBackdrop
+import com.maxrave.simpmusic.expect.ui.rememberBackdrop
 import com.maxrave.simpmusic.extension.getScreenSizeInfo
+import com.maxrave.simpmusic.extension.ultraThinBarStyle
 import com.maxrave.simpmusic.getPlatform
+import com.maxrave.simpmusic.ui.component.AddToPlaylistModalBottomSheet
 import com.maxrave.simpmusic.ui.component.CenterLoadingBox
 import com.maxrave.simpmusic.ui.component.MoodCategoryCard
 import com.maxrave.simpmusic.ui.component.rememberHolderPainter
 import com.maxrave.simpmusic.extension.getStringBlocking
+import com.maxrave.simpmusic.extension.toAppDeepLinkOrNull
 import com.maxrave.simpmusic.ui.component.ArtistFullWidthItems
 import com.maxrave.simpmusic.ui.component.Chip
 import com.maxrave.simpmusic.ui.component.EndOfPage
@@ -112,6 +123,10 @@ import com.maxrave.simpmusic.ui.component.PlaylistFullWidthItems
 import com.maxrave.simpmusic.ui.component.ShimmerSearchItem
 import com.maxrave.simpmusic.ui.component.SimpMusicChartButton
 import com.maxrave.simpmusic.ui.component.SongFullWidthItems
+import com.maxrave.simpmusic.ui.component.selection.SelectedSongsBottomSheet
+import com.maxrave.simpmusic.ui.component.selection.SongSelectionTopAppBar
+import com.maxrave.simpmusic.ui.component.selection.rememberSongSelectionState
+import com.maxrave.simpmusic.ui.icon.ArrowBackIosNew
 import com.maxrave.simpmusic.ui.icon.ArrowOutward
 import com.maxrave.simpmusic.ui.icon.Close
 import com.maxrave.simpmusic.ui.icon.History
@@ -122,21 +137,24 @@ import com.maxrave.simpmusic.ui.navigation.destination.list.AlbumDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PlaylistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PodcastDestination
+import com.maxrave.simpmusic.ui.navigation.destination.search.SearchDestination
+import com.maxrave.simpmusic.ui.theme.LocalLiquidGlassEnabled
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.SearchScreenUIState
 import com.maxrave.simpmusic.viewModel.SearchType
 import com.maxrave.simpmusic.viewModel.SearchViewModel
 import com.maxrave.simpmusic.viewModel.SharedViewModel
+import com.maxrave.simpmusic.viewModel.SongSelectionViewModel
 import com.maxrave.simpmusic.viewModel.toStringRes
-import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.HazeInput
+import dev.chrisbanes.haze.blur.hazeBlur
 import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
 import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.albums
 import simpmusic.composeapp.generated.resources.artists
@@ -154,7 +172,7 @@ import simpmusic.composeapp.generated.resources.song
 import simpmusic.composeapp.generated.resources.videos
 import simpmusic.composeapp.generated.resources.what_do_you_want_to_listen_to
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     searchViewModel: SearchViewModel = koinInject(),
@@ -163,6 +181,7 @@ fun SearchScreen(
 ) {
     val uriHandler = LocalUriHandler.current
     val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val searchScreenState by searchViewModel.searchScreenState.collectAsStateWithLifecycle()
     val uiState by searchViewModel.searchScreenUIState.collectAsStateWithLifecycle()
     val searchHistory by searchViewModel.searchHistory.collectAsStateWithLifecycle()
@@ -178,6 +197,15 @@ fun SearchScreen(
 
     var isFocused by rememberSaveable { mutableStateOf(false) }
 
+    val isSearchPanelVisible =
+        searchUIType == SearchUIType.SEARCH_HISTORY || searchUIType == SearchUIType.SEARCH_SUGGESTIONS
+    val dismissSearchPanel: () -> Unit = {
+        isExpanded = false
+        focusManager.clearFocus()
+        keyboardController?.hide()
+    }
+    PlatformBackHandler(enabled = isSearchPanelVisible, onBack = dismissSearchPanel)
+
     // The bar floats OVER the content (a Box, not a Column) so there is something behind it to
     // blur — same arrangement HomeScreen uses. Each branch owns a scroll state, hoisted here so
     // the bar can tell whether the branch currently on screen is scrolled away from the top.
@@ -188,7 +216,10 @@ fun SearchScreen(
     val isMobilePortrait = getPlatform() == Platform.Android && screenInfo.wDP < screenInfo.hDP
     val moodGridColumns = if (isMobilePortrait) 2 else 4
 
-    val hazeState = rememberHazeState(blurEnabled = true)
+    val hazeState = rememberHazeState()
+    // The floating chip row refracts the page scrolling under it, so the page is the glass source and
+    // the row its sibling (nesting the row inside the source is the RuntimeShader feedback loop).
+    val chipBackdrop = rememberBackdrop(MaterialTheme.colorScheme.background)
     val suggestionsState = rememberLazyListState()
     val historyState = rememberLazyListState()
     val moodGridState = rememberLazyGridState()
@@ -243,6 +274,11 @@ fun SearchScreen(
 
     var sheetSong by remember { mutableStateOf<SongEntity?>(null) }
     var showBottomSheet by remember { mutableStateOf(false) }
+
+    val selectionState = rememberSongSelectionState()
+    val selectionViewModel: SongSelectionViewModel = koinViewModel()
+    var showSelectionSheet by rememberSaveable { mutableStateOf(false) }
+    var showSelectionAddToPlaylist by rememberSaveable { mutableStateOf(false) }
     val currentVideoId by searchViewModel.nowPlayingVideoId.collectAsStateWithLifecycle()
     val chipRowState = rememberScrollState()
     val pullToRefreshState = rememberPullToRefreshState()
@@ -287,6 +323,60 @@ fun SearchScreen(
             }
     }
 
+    //On search icon click while on search screen, open keyboard. Android only feature
+    if (getPlatform() == Platform.Android) {
+        val reloadDestination by sharedViewModel.reloadDestination.collectAsStateWithLifecycle()
+        LaunchedEffect(reloadDestination) {
+            if (reloadDestination == SearchDestination::class) {
+                if (!selectionState.isActive && searchUIType == SearchUIType.EMPTY) {
+                    isExpanded = true
+                    focusRequester.requestFocus()
+                    keyboardController?.show()
+                }
+                sharedViewModel.reloadDestinationDone()
+            }
+        }
+    }
+
+    if (showSelectionSheet) {
+        val selectedIds = selectionState.selected.toList()
+        SelectedSongsBottomSheet(
+            count = selectedIds.size,
+            onDismiss = { showSelectionSheet = false },
+            onPlayNext = {
+                selectionViewModel.playNext(selectedIds)
+                selectionState.exit()
+            },
+            onAddToQueue = {
+                selectionViewModel.addToQueue(selectedIds)
+                selectionState.exit()
+            },
+            onAddToPlaylist = { showSelectionAddToPlaylist = true },
+            onDownload = {
+                selectionViewModel.download(selectedIds)
+                selectionState.exit()
+            },
+            onAddToFavorite = {
+                selectionViewModel.addToFavorite(selectedIds)
+                selectionState.exit()
+            },
+        )
+    }
+    if (showSelectionAddToPlaylist) {
+        val selectedIds = selectionState.selected.toList()
+        val localPlaylists by selectionViewModel.listLocalPlaylist.collectAsStateWithLifecycle()
+        AddToPlaylistModalBottomSheet(
+            isBottomSheetVisible = true,
+            listLocalPlaylist = localPlaylists,
+            listYouTubePlaylist = emptyList(),
+            onDismiss = { showSelectionAddToPlaylist = false },
+            onClick = { playlist ->
+                selectionViewModel.addToPlaylist(playlist.id, selectedIds)
+                selectionState.exit()
+            },
+            onYTPlaylistClick = {},
+        )
+    }
     if (showBottomSheet) {
         NowPlayingBottomSheet(
             onDismiss = {
@@ -308,7 +398,7 @@ fun SearchScreen(
         // equal to the bar's measured height to keep its first item clear of it.
         Crossfade(
             targetState = searchUIType,
-            modifier = Modifier.fillMaxSize().hazeSource(hazeState),
+            modifier = Modifier.fillMaxSize().then(if (LocalLiquidGlassEnabled.current) Modifier.layerBackdrop(chipBackdrop) else Modifier).hazeSource(hazeState),
         ) {
             when (it) {
                 SearchUIType.SEARCH_SUGGESTIONS -> {
@@ -727,6 +817,10 @@ fun SearchScreen(
                                                                                 arrayListOf(result.toTrack()),
                                                                             )
                                                                         },
+                                                                        selectionMode = selectionState.isActive,
+                                                                        isSelected = selectionState.isSelected(result.videoId),
+                                                                        onLongClick = { selectionState.start(it) },
+                                                                        onSelectToggle = { selectionState.toggle(it) },
                                                                     )
                                                                 }
 
@@ -762,6 +856,10 @@ fun SearchScreen(
                                                                                 arrayListOf(result.toTrack()),
                                                                             )
                                                                         },
+                                                                        selectionMode = selectionState.isActive,
+                                                                        isSelected = selectionState.isSelected(result.videoId),
+                                                                        onLongClick = { selectionState.start(it) },
+                                                                        onSelectToggle = { selectionState.toggle(it) },
                                                                     )
                                                                 }
 
@@ -880,31 +978,58 @@ fun SearchScreen(
                 }
             }
         }
-        AnimatedContent(
-            targetState = isContentAtTop,
-            transitionSpec = {
-                fadeIn(tween(300)).togetherWith(fadeOut(tween(300)))
-            },
+        Box(
             modifier =
                 Modifier
                     .align(Alignment.TopCenter)
                     .onGloballyPositioned { searchBarHeightPx = it.size.height },
-            label = "search_bar_scrim",
-        ) { atTop ->
+        ) {
+            // Animate only the background so scrolling keeps the search input and its focus.
+            AnimatedVisibility(
+                visible = !isContentAtTop,
+                modifier = Modifier.matchParentSize(),
+                enter = fadeIn(tween(300)),
+                exit = fadeOut(tween(300)),
+                label = "search_bar_scrim",
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .hazeBlur(HazeInput.Sources(hazeState), ultraThinBarStyle()),
+                )
+            }
             Column(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .then(
-                            if (atTop) {
-                                Modifier.background(Color.Transparent)
-                            } else {
-                                Modifier.hazeEffect(hazeState, style = HazeMaterials.ultraThin()) {
-                                    blurEnabled = true
-                                }
-                            },
-                        ).padding(vertical = 10.dp),
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .padding(vertical = 10.dp),
             ) {
+        AnimatedVisibility(visible = selectionState.isActive) {
+            SongSelectionTopAppBar(
+                state = selectionState,
+                onSelectAll = {
+                    val visible =
+                        when (searchScreenState.searchType) {
+                            SearchType.SONGS -> searchScreenState.searchSongsResult.map { it.videoId }
+                            SearchType.VIDEOS -> searchScreenState.searchVideosResult.map { it.videoId }
+                            SearchType.ALL ->
+                                searchScreenState.searchAllResult.mapNotNull {
+                                    (it as? SongsResult)?.videoId ?: (it as? VideosResult)?.videoId
+                                }
+                            else -> emptyList()
+                        }
+                    selectionState.toggleSelectAll(visible)
+                },
+                onOpenActions = { showSelectionSheet = true },
+                containerColor = Color.Transparent,
+                // Zero here AND on the SearchBar below: the Column that holds them both consumes
+                // the status bar once, for the whole stack. Leaving it on either child reserves it
+                // a second time — which is the slab of padding this screen used to show.
+                windowInsets = WindowInsets(0),
+            )
+        }
         // Search Bar with Animated Placeholder
         SearchBar(
             inputField = {
@@ -914,7 +1039,15 @@ fun SearchScreen(
                         searchText = newText
                     },
                     onSearch = { query ->
-                        if (query.isNotEmpty()) {
+                        // A pasted YouTube link is a destination, not a query. Translating it into
+                        // the app's own deep link hands it to the same intent flow that handles
+                        // shared links, so it plays or opens straight away instead of being
+                        // searched for as text. Anything else falls through to a normal search.
+                        val deepLink = query.toAppDeepLinkOrNull()
+                        if (deepLink != null) {
+                            focusManager.clearFocus()
+                            sharedViewModel.setIntent(GenericIntent(data = deepLink))
+                        } else if (query.isNotEmpty()) {
                             isSearchSubmitted = true
                             focusManager.clearFocus()
                             searchViewModel.insertSearchHistory(query)
@@ -955,10 +1088,34 @@ fun SearchScreen(
                         }
                     },
                     leadingIcon = {
-                        Icon(
-                            imageVector = SimpIcons.Search,
-                            contentDescription = "Search",
-                        )
+                        Crossfade(
+                            targetState = isSearchPanelVisible,
+                            modifier = Modifier.size(48.dp),
+                            animationSpec = tween(200),
+                            label = "search_back_icon",
+                        ) { showBack ->
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (showBack) {
+                                    IconButton(
+                                        onClick = dismissSearchPanel,
+                                        enabled = isSearchPanelVisible,
+                                    ) {
+                                        Icon(
+                                            imageVector = SimpIcons.ArrowBackIosNew,
+                                            contentDescription = "Back",
+                                        )
+                                    }
+                                } else {
+                                    Icon(
+                                        imageVector = SimpIcons.Search,
+                                        contentDescription = "Search",
+                                    )
+                                }
+                            }
+                        }
                     },
                     trailingIcon = {
                         // X button only shows when there's text
@@ -989,6 +1146,8 @@ fun SearchScreen(
                         isFocused = it.isFocused
                     }.padding(horizontal = 16.dp),
             shape = RoundedCornerShape(8.dp),
+            // See the note on SongSelectionTopAppBar above — the Column owns the status-bar inset.
+            windowInsets = WindowInsets(0),
             content = {},
         )
                 // Filter chips ride along inside the blurred block instead of sitting in the
@@ -1009,6 +1168,7 @@ fun SearchScreen(
                                 isAnimated = uiState is SearchScreenUIState.Loading,
                                 isSelected = isSelected,
                                 text = stringResource(id.toStringRes()),
+                                backdrop = chipBackdrop,
                             ) {
                                 searchViewModel.setSearchType(id)
                             }

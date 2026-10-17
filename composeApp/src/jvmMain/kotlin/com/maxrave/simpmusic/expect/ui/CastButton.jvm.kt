@@ -11,3 +11,12 @@ actual fun PlatformCastButton(
 ) {
     // No-op: desktop has no Google Cast sender.
 }
+
+actual fun isPlatformCastAvailable(): Boolean = false
+
+@Composable
+actual fun rememberCastReceivers(discover: Boolean): CastReceivers = NoCastReceivers
+
+// Desktop has no Google Cast sender, so the list is always empty and the actions do nothing.
+private val NoCastReceivers = CastReceivers(receivers = emptyList(), connect = {}, disconnect = {})
+

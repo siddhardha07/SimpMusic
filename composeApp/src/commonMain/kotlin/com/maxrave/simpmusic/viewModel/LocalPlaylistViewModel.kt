@@ -36,13 +36,21 @@ import com.maxrave.domain.utils.collectResource
 import com.maxrave.domain.utils.toArrayListTrack
 import com.maxrave.domain.utils.toSongEntity
 import com.maxrave.domain.utils.toTrack
+import com.maxrave.logger.LogLevel
 import com.maxrave.logger.Logger
 import com.maxrave.simpmusic.pagination.PagingActions
 import com.maxrave.simpmusic.viewModel.base.BaseViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -197,6 +205,37 @@ class LocalPlaylistViewModel(
             PagingData.empty(),
         )
     val tracksPagingState: StateFlow<PagingData<Pair<SongEntity, PairSongLocalPlaylist>>> get() = _tracksPagingState
+
+    private val _searchQuery: MutableStateFlow<String> = MutableStateFlow("")
+    val searchQuery: StateFlow<String> get() = _searchQuery
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
+    /**
+     * Results for the search box, entirely separate from [tracksPagingState].
+     *
+     * Deliberately not a filter over the paged list: PagingData.filter only sees pages already
+     * loaded, so on a long playlist a track would be findable or not depending on how far the
+     * user had scrolled. This queries the database instead and returns a plain list.
+     *
+     * Below two characters it emits nothing — a single letter matches most of a playlist, which
+     * is neither useful to read nor cheap to fetch.
+     */
+    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
+    val searchResults: StateFlow<List<Pair<SongEntity, PairSongLocalPlaylist>>> =
+        _searchQuery
+            .debounce(250)
+            .distinctUntilChanged()
+            .flatMapLatest { raw ->
+                val query = raw.trim()
+                if (query.length < 2) {
+                    flowOf(emptyList())
+                } else {
+                    localPlaylistRepository.searchTracks(uiState.value.id, query)
+                }
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     private val lazyTrackPagingItems: MutableStateFlow<LazyPagingItems<Pair<SongEntity, PairSongLocalPlaylist>>?> = MutableStateFlow(null)
 
     fun setLazyTrackPagingItems(lazyPagingItems: LazyPagingItems<Pair<SongEntity, PairSongLocalPlaylist>>) {
@@ -502,36 +541,38 @@ class LocalPlaylistViewModel(
         }
     }
 
+    /**
+     * Mirrors the download state of [listJob] onto the playlist while the batch runs.
+     *
+     * A missing entry in `downloadTask` means "nothing reported yet", which is NOT the same as
+     * "finished and not downloaded" — collapsing the two into a trailing `else` is what pinned
+     * every playlist to STATE_NOT_DOWNLOADED whenever the map had not been populated. An
+     * unresolved batch therefore leaves the current state alone instead of overwriting it.
+     *
+     * The repository write also has to happen OUTSIDE `_uiState.update`: that helper is a
+     * compare-and-set retry loop, so a lambda with a suspending side effect in it can run more
+     * than once per emission and issue duplicate writes.
+     */
     fun downloadFullPlaylistState(
         id: Long,
         listJob: List<String>,
     ) {
+        if (listJob.isEmpty()) return
         viewModelScope.launch {
             downloadUtils.downloadTask.collect { download ->
-                _uiState.update { ui ->
-                    ui.copy(
-                        downloadState =
-                            if (listJob.all { download[it] == STATE_DOWNLOADED }) {
-                                localPlaylistRepository.updateLocalPlaylistDownloadState(
-                                    STATE_DOWNLOADED,
-                                    id,
-                                )
-                                STATE_DOWNLOADED
-                            } else if (listJob.any { download[it] == STATE_DOWNLOADING }) {
-                                localPlaylistRepository.updateLocalPlaylistDownloadState(
-                                    STATE_DOWNLOADING,
-                                    id,
-                                )
-                                STATE_DOWNLOADING
-                            } else {
-                                localPlaylistRepository.updateLocalPlaylistDownloadState(
-                                    STATE_NOT_DOWNLOADED,
-                                    id,
-                                )
-                                STATE_NOT_DOWNLOADED
-                            },
-                    )
-                }
+                val states = listJob.map { download[it] }
+                val resolved =
+                    when {
+                        // Checked before completeness: one track actively downloading is enough
+                        // to call the playlist downloading, even if the rest are still unreported.
+                        states.any { it == STATE_DOWNLOADING } -> STATE_DOWNLOADING
+                        states.all { it == STATE_DOWNLOADED } -> STATE_DOWNLOADED
+                        states.any { it == null } -> null
+                        else -> STATE_NOT_DOWNLOADED
+                    }
+                if (resolved == null || resolved == uiState.value.downloadState) return@collect
+                localPlaylistRepository.updateLocalPlaylistDownloadState(resolved, id)
+                _uiState.update { it.copy(downloadState = resolved) }
             }
         }
     }
@@ -996,29 +1037,30 @@ class LocalPlaylistViewModel(
                         hideLoadingDialog()
                     },
                     onError = { message ->
-                        log("changeLocalPlaylistItemPosition (synced): error $message")
+                        log("changeLocalPlaylistItemPosition (synced): error $message", LogLevel.WARN)
                         makeToast(message ?: getString(Res.string.error))
                         hideLoadingDialog()
                     },
                 )
         } else {
             // Unsynced playlist: local only, no loading dialog needed
-            val loadedList =
-                lazyTrackPagingItems.value?.itemSnapshotList?.toList() ?: return
-            val fromItem = loadedList.getOrNull(from)?.first ?: return
-            val toItem = loadedList.getOrNull(to)?.first ?: return
-            val fromPosition = loadedList.getOrNull(from)?.second?.position ?: from
-            val toPosition = loadedList.getOrNull(to)?.second?.position ?: to
-            val playlistId = uiState.value.id
-
             localPlaylistRepository
-                .changePositionOfSongInPlaylist(playlistId, fromItem.videoId, toPosition)
-                .lastOrNull()
-                ?.let { log("changeLocalPlaylistItemPosition: from $it") }
-            localPlaylistRepository
-                .changePositionOfSongInPlaylist(playlistId, toItem.videoId, fromPosition)
-                .lastOrNull()
-                ?.let { log("changeLocalPlaylistItemPosition: to $it") }
+                .moveItemInLocalPlaylist(
+                    playlistId = uiState.value.id,
+                    fromIndex = from,
+                    toIndex = to,
+                ).collectResource(
+                    onLoading = {
+                        log("changeLocalPlaylistItemPosition (local): loading")
+                    },
+                    onSuccess = {
+                        log("changeLocalPlaylistItemPosition (local): success $it")
+                    },
+                    onError = { message ->
+                        log("changeLocalPlaylistItemPosition (local): error $message", LogLevel.WARN)
+                        makeToast(message)
+                    },
+                )
         }
     }
 }

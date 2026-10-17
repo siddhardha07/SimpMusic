@@ -18,10 +18,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.maxrave.domain.mediaservice.handler.ControlState
 import com.maxrave.domain.mediaservice.handler.RepeatState
+import com.maxrave.simpmusic.extension.LeftToRight
+import com.maxrave.simpmusic.ui.icon.Pause
 import com.maxrave.simpmusic.ui.icon.PauseCircle
+import com.maxrave.simpmusic.ui.icon.PlayArrow
 import com.maxrave.simpmusic.ui.icon.PlayCircle
 import com.maxrave.simpmusic.ui.icon.Repeat
 import com.maxrave.simpmusic.ui.icon.RepeatOne
@@ -36,9 +40,19 @@ import com.maxrave.simpmusic.viewModel.UIEvent
 fun PlayerControlLayout(
     controllerState: ControlState,
     isSmallSize: Boolean = false,
+    // Bare ▶ / ⏸ glyphs instead of the disc-enclosed PlayCircle/PauseCircle pair.
+    // The desktop capsule asks for these; Now Playing keeps the discs.
+    plainPlayPause: Boolean = false,
+    // The capsule already pads its own edges; stacking this 20dp on top of that
+    // read as a hole at both ends of the transport cluster.
+    horizontalPadding: Dp = 20.dp,
+    // Tint for the ACTIVE shuffle/repeat state. The default keeps the raw seed (#8ECAE6) every
+    // existing call site had; the capsule passes a theme-aware colour because pastel seed on a
+    // light glass surface is nearly invisible.
+    activeColor: Color = seed,
     contentColor: Color = Color.White,
     onUIEvent: (UIEvent) -> Unit,
-) {
+) = LeftToRight {
     val height = if (isSmallSize) 48.dp else 96.dp
     val smallIcon = if (isSmallSize) 20.dp to 28.dp else 32.dp to 42.dp
     val mediumIcon = if (isSmallSize) 28.dp to 38.dp else 42.dp to 52.dp
@@ -50,7 +64,7 @@ fun PlayerControlLayout(
             Modifier
                 .fillMaxWidth()
                 .height(height)
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = horizontalPadding),
     ) {
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
             Box(
@@ -78,7 +92,7 @@ fun PlayerControlLayout(
                     } else {
                         Icon(
                             imageVector = SimpIcons.Shuffle,
-                            tint = seed,
+                            tint = activeColor,
                             contentDescription = "",
                             modifier = Modifier.size(smallIcon.first),
                         )
@@ -129,14 +143,14 @@ fun PlayerControlLayout(
                 Crossfade(targetState = controllerState.isPlaying) { isPlaying ->
                     if (!isPlaying) {
                         Icon(
-                            imageVector = SimpIcons.PlayCircle,
+                            imageVector = if (plainPlayPause) SimpIcons.PlayArrow else SimpIcons.PlayCircle,
                             tint = contentColor,
                             contentDescription = "",
                             modifier = Modifier.size(bigIcon.first),
                         )
                     } else {
                         Icon(
-                            imageVector = SimpIcons.PauseCircle,
+                            imageVector = if (plainPlayPause) SimpIcons.Pause else SimpIcons.PauseCircle,
                             tint = contentColor,
                             contentDescription = "",
                             modifier = Modifier.size(bigIcon.first),
@@ -198,7 +212,7 @@ fun PlayerControlLayout(
                         RepeatState.All -> {
                             Icon(
                                 imageVector = SimpIcons.Repeat,
-                                tint = seed,
+                                tint = activeColor,
                                 contentDescription = "",
                                 modifier = Modifier.size(smallIcon.first),
                             )
@@ -207,7 +221,7 @@ fun PlayerControlLayout(
                         RepeatState.One -> {
                             Icon(
                                 imageVector = SimpIcons.RepeatOne,
-                                tint = seed,
+                                tint = activeColor,
                                 contentDescription = "",
                                 modifier = Modifier.size(smallIcon.first),
                             )

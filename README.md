@@ -1,4 +1,4 @@
-<div align="center"> <img src="https://raw.githubusercontent.com/maxrave-dev/SimpMusic/main/fastlane/metadata/android/en-US/images/featureGraphic.png"> <h1>SimpMusic</h1>  
+<div align="center"> <img src="https://raw.githubusercontent.com/maxrave-dev/SimpMusic/dev/fastlane/metadata/android/en-US/images/featureGraphic.png"> <h1>SimpMusic</h1>  
 A FOSS YouTube Music client for Android and Desktop with many features from<br>Spotify, SponsorBlock, ReturnYouTubeDislike using Compose Multiplatform to develop.
 <br> 
 <br>
@@ -12,34 +12,50 @@ A FOSS YouTube Music client for Android and Desktop with many features from<br>S
 <a href="https://f-droid.org/en/packages/com.maxrave.simpmusic/"><img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" width="200"></a> 
 <a href="https://www.openapk.net/simpmusic/com.maxrave.simpmusic/"><img src="https://www.openapk.net/images/openapk-badge.png" width="200"></a> 
 <a href="https://github.com/maxrave-dev/SimpMusic/releases"><img src="https://raw.githubusercontent.com/NeoApplications/Neo-Backup/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" width="200"></a> 
+<br><sub>On vivo phones, install <code>SimpMusic-full-vivo-*.apk</code> from <a href="https://github.com/maxrave-dev/SimpMusic/releases">Releases</a> for Origin Island and the music widget. It installs as a separate app and can't sit next to Spotify.</sub>
 <h4>Nightly Build</h4>  
-<a href="https://simpmusic.org/nightly-download"><img src="https://github.com/maxrave-dev/SimpMusic/actions/workflows/android.yml/badge.svg"></a><br/> <a href="https://simpmusic.org/nightly-download"><img src="https://raw.githubusercontent.com/NeoApplications/Neo-Backup/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" width="200"></a> 
+<a href="https://www.simpmusic.org/download/nightly"><img src="https://github.com/maxrave-dev/SimpMusic/actions/workflows/android.yml/badge.svg"></a><br/> <a href="https://www.simpmusic.org/download/nightly"><img src="https://raw.githubusercontent.com/NeoApplications/Neo-Backup/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" width="200"></a> 
 </div>  
 
 > SimpMusic is available on Desktop now!
+>
+> [kotlin-footguns](https://github.com/maxrave-dev/kotlin-footguns) — the Kotlin, Compose Multiplatform and desktop JVM traps this project ran into the hard way. Star it if it saves you a night.
+
+[![Sponsor](https://readme.cash/i/janwgx1dnp.svg)](https://readme.cash/c/janwgx1dnp)
   
 ## Features ✨️    
 - Play music from YouTube Music or YouTube for free, without ads and in the background
-- High quality up-to 256kbps stream for YouTube Music Premium users (NEW)
+- Three Now Playing styles: Classic, Material 3 Expressive and a redesigned Apple Music player with Apple Music-style lyrics (NEW)
+- Ten-band equalizer with presets and AutoEq headphone profiles, plus Delay and Reverb effects, or your phone's system equalizer on Android (NEW)
+- Pick the speaker, headphones or Cast device SimpMusic plays on, without moving other apps' audio (NEW)
+- SimpMusic Wrapped: your year in music, plus monthly recap playlists (NEW)
+- On-device listening analytics: charts, period history, listening clock and a shareable listening receipt (NEW)
+- Word-by-word Apple Music-style lyrics, romanization for 12 languages, share lyrics as an image, landscape fullscreen lyrics and a timing offset (NEW)
+- Home screen widgets: turntable, playlists and listening insights (NEW)
+- Send your sign-ins from Android to Desktop by scanning a QR code (NEW)
+- Preferred audio language for videos with several audio tracks (NEW)
+- High quality up-to 256kbps stream (Opus or AAC) for YouTube Music Premium users
 - Browsing Home, Charts, Podcast, Moods & Genre with YouTube Music data at high speed    
 - Search everything on YouTube    
-- Analyze your playing data, create custom playlists, and sync with YouTube Music...    
-- Spotify Canvas supported    
+- Spotify Canvas and Animated Album Art supported (NEW)
 - Power your experience with SimpMusic Chart (https://chart.simpmusic.org/)
 - Play 1080p video option with subtitle    
-- AI song suggestions    
+- Play YouTube Music live stations (NEW)
+- AI song suggestions and an AI reading of your music taste (NEW)
+- Import playlists converted from Spotify and other apps
 - Customize your playlist, synced with YouTube Music
 - Notifications from followed artists    
 - Caching and offline playback support    
-- Crossfade with DJ-style like Apple Music (NEW)
-- Customizing THEME (Light, Dark, Color, etc) (NEW)
+- Crossfade with DJ-style like Apple Music
+- Customizing THEME (Light, Dark, Color, etc)
 - Synced lyrics from SimpMusic Lyrics, LRCLIB, Spotify (require login) and YouTube Transcript - AI lyrics translation (BETA) (\*)  
 - Personalize data (\**) and multi-YouTube-account support    
-- Local "scrobble" like Last.fm (NEW)
+- Last.fm scrobbling (Full version)
 - Supports SponsorBlock and Return YouTube Dislike
 - Sleep Timer    
-- Android Auto with online content, feature rich UI/UX (NEW)
+- Android Auto with online content, feature rich UI/UX
 - Discord Rich Presence support
+- Listen Together: shared rooms that play in sync with friends, compatible with Metrolist (NEW)
 - And many more!    
   
 > (\*) Use your OpenAI or Gemini API key    
@@ -52,23 +68,25 @@ A FOSS YouTube Music client for Android and Desktop with many features from<br>S
     
 ## Screenshots    
  <p align="center">          
- <img src="https://github.com/maxrave-dev/SimpMusic/blob/main/asset/screenshot/01.png?raw=true" width="200" />          
-  <img src="https://github.com/maxrave-dev/SimpMusic/blob/main/asset/screenshot/02.png?raw=true" width="200" />          
-   <img src="https://github.com/maxrave-dev/SimpMusic/blob/main/asset/screenshot/03.png?raw=true" width="200" />          
-   <img src="https://github.com/maxrave-dev/SimpMusic/blob/main/asset/screenshot/04.png?raw=true" width="200" /> </p> <p align="center">          
- <img src="https://github.com/maxrave-dev/SimpMusic/blob/main/asset/screenshot/05.png?raw=true" width="200" />          
- <img src="https://github.com/maxrave-dev/SimpMusic/blob/main/asset/screenshot/17.png?raw=true" width="200" />  
-   <img src="https://github.com/maxrave-dev/SimpMusic/blob/main/asset/screenshot/07.png?raw=true" width="200" />          
-   <img src="https://github.com/maxrave-dev/SimpMusic/blob/main/asset/screenshot/08.png?raw=true" width="200" /> </p> <p align="center">          
- <img src="https://github.com/maxrave-dev/SimpMusic/blob/main/asset/screenshot/09.png?raw=true" width="200" />          
-  <img src="https://github.com/maxrave-dev/SimpMusic/blob/main/asset/screenshot/10.png?raw=true" width="200" />         
-  <img src="https://github.com/maxrave-dev/SimpMusic/blob/main/asset/screenshot/11.png?raw=true" width="200" /> 
-     <img src="https://github.com/maxrave-dev/SimpMusic/blob/main/asset/screenshot/12.png?raw=true" width="200" /> </p> <p align="center">    
- <img src="https://github.com/maxrave-dev/SimpMusic/blob/main/asset/screenshot/13.png?raw=true" width="200" />          
-  <img src="https://github.com/maxrave-dev/SimpMusic/blob/main/asset/screenshot/14.png?raw=true" width="200" />         
-  <img src="https://github.com/maxrave-dev/SimpMusic/blob/main/asset/screenshot/15.png?raw=true" width="200" /> 
-     <img src="https://github.com/maxrave-dev/SimpMusic/blob/main/asset/screenshot/16.png?raw=true" width="200" /> </p> <p align="center">  
-   <img src="https://github.com/maxrave-dev/SimpMusic/blob/main/asset/screenshot/06.png?raw=true" width="800" />  
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/01.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/02.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/03.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/04.png?raw=true" width="200" /> </p> <p align="center">          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/05.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/06.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/07.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/08.png?raw=true" width="200" /> </p> <p align="center">          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/09.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/10.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/11.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/12.png?raw=true" width="200" /> </p> <p align="center">          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/13.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/14.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/15.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/16.png?raw=true" width="200" /> </p> <p align="center">          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/17.png?raw=true" width="200" />          
+ <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/18.png?raw=true" width="200" /> </p> <p align="center">  
+   <img src="https://github.com/maxrave-dev/SimpMusic/blob/dev/asset/screenshot/19.png?raw=true" width="800" />  
 </p>
 
  #### More [screenshots](https://photos.app.goo.gl/AbieoXG5ctDrpwzp7) here.
@@ -87,7 +105,7 @@ A FOSS YouTube Music client for Android and Desktop with many features from<br>S
  SimpMusic doesn't have any tracker or third-party server for collecting user data in FOSS version. If YouTube      
 logged-in users enable "Send back to Google" feature, SimpMusic only uses YouTube Music Tracking API to send listening history and listening record of video to Google for better recommendations and      
 supporting artist or YouTube Creator (For API reference,      
-see [this](https://github.com/maxrave-dev/SimpMusic/blob/main/core/service/kotlinYtmusicScraper/src/commonMain/kotlin/com/maxrave/kotlinytmusicscraper/Ytmusic.kt)).
+see [this](https://github.com/maxrave-dev/core/blob/master/service/kotlinYtmusicScraper/src/commonMain/kotlin/com/maxrave/kotlinytmusicscraper/Ytmusic.kt)).
 
 We collect crash data in the Full version to improve the app.
    
@@ -98,8 +116,8 @@ I use [Sentry](http://sentry.io) crashlytics to catch all crashes in the Full ve
 ## Desktop app
 
 ### Which file should I download?
-- For Windows: Download the `.msix` package and run `install.bat` to install.
-- For macOS: Download the file with extension `.dmg`.
+- For Windows: Download `SimpMusic-Windows-installer.zip`, unzip it and run `install.bat`.
+- For macOS (macOS 15 or newer): Download the file with extension `.dmg`.
 - For Linux: Download the file with extension `.AppImage` (all Linux distributions)
 
 ### Log in guide: https://www.simpmusic.org/blogs/en/how-to-log-in-on-desktop-app
@@ -124,6 +142,19 @@ You can help me translate this app into your language by using Crowdin [SimpMusi
  Simply, because I love the name. It's a combination of 'Simple' and 'Music'. But SimpMusic is not a simple app, it's all you need for a powerful music streaming app.    
   
 #### More FAQ, join [my Discord channel](https://discord.com/channels/1136988323819298856/1349800418745778196)  
+
+## Contributing
+
+Contributions are welcome — the full guide lives in [CONTRIBUTING.md](CONTRIBUTING.md). The short version:
+
+1. **Start from an issue.** Every PR needs an accepted issue behind it — open one first so the change is agreed before the code exists.
+2. **Fork and branch from `dev`** (`main` tracks releases), and fill in the whole PR template — one checkbox is machine-checked.
+3. **AI policy.** AI-*assisted* work is welcome; AI-*driven* work is not:
+   - A human must have written or personally reviewed **every line** and be able to answer review comments about it.
+   - Unattended agent submissions (Jules, Devin, and friends) are **closed automatically** by the triage bot, on sight.
+   - Commits carrying AI co-author trailers (`Co-Authored-By: Claude/Copilot/…`) or "Generated with …" markers are rejected the same way — squash them out first.
+   - Repeat offenders are blocked.
+4. **Translations** go through [Crowdin](https://crowdin.com/project/simpmusic), never PRs editing the string files directly.
 
 ## Legal Disclaimer & Terms of Use
 
@@ -179,14 +210,6 @@ src="https://raw.githubusercontent.com/liberapay/liberapay.com/master/www/assets
 
 ## SimpMusic is sponsored by:
 <br />
-<a href="https://vercel.com/oss">
-  <img alt="Vercel OSS Program" src="https://vercel.com/oss/program-badge.svg" />
-</a>
-<br />
-<br />
-<a href="https://www.digitalocean.com/?refcode=d7f6eedfb9a9&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge"><img src="https://web-platforms.sfo2.cdn.digitaloceanspaces.com/WWW/Badge%201.svg" width="300" alt="DigitalOcean Referral Badge" /></a>
-<br>
-<br>
 <a href="https://crowdin.com">
 <img src="https://support.crowdin.com/assets/logos/plate/png/crowdin-logo-with-plate.png" width="300"/>
 </a>
@@ -197,15 +220,21 @@ src="https://raw.githubusercontent.com/liberapay/liberapay.com/master/www/assets
 <br>
 <br>
 
-Get a free $200 credit over 60 days on DigitalOcean: [GET NOW](https://www.digitalocean.com/?refcode=d7f6eedfb9a9&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge)
-
 Crowdin and Sentry both have a free enterprise plan for Open-source projects. Follow the URLs: 
 - [Open Source License Request Form | Crowdin](https://crowdin.com/page/open-source-project-setup-request)
 - [Sentry for Open Source | Sentry](https://sentry.io/for/open-source/)
 
+## Past sponsored:
+<br />
+<a href="https://vercel.com/oss">
+  <img alt="Vercel OSS Program" src="https://vercel.com/oss/program-badge.svg" />
+</a>
+<br />
+<br />
+
 Check out the Vercel open-source program:
 - https://vercel.com/open-source-program
-  
+
 This project is tested with BrowserStack
 - Checkout BrowserStack now: https://www.browserstack.com/
 

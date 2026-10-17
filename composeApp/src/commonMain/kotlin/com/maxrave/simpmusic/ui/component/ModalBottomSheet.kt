@@ -23,10 +23,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -34,6 +36,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
@@ -43,6 +46,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -64,7 +68,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -88,10 +91,11 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -114,33 +118,38 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.maxrave.data.io.readLocalImageBytes
 import com.maxrave.domain.data.entities.DownloadState
+import com.maxrave.domain.data.model.browse.album.Track
+import com.maxrave.domain.utils.toSongEntity
 import com.maxrave.domain.data.entities.LocalPlaylistEntity
 import com.maxrave.domain.data.entities.SongEntity
 import com.maxrave.domain.data.model.download.DownloadProgress
 import com.maxrave.domain.data.model.searchResult.playlists.PlaylistsResult
 import com.maxrave.domain.data.model.searchResult.songs.Artist
 import com.maxrave.domain.manager.DataStoreManager
+import com.maxrave.domain.mediaservice.handler.AddToQueueBlock
 import com.maxrave.domain.mediaservice.handler.MediaPlayerHandler
 import com.maxrave.domain.mediaservice.handler.QueueData
+import com.maxrave.domain.mediaservice.handler.addToQueueBlock
 import com.maxrave.domain.repository.LocalPlaylistRepository
 import com.maxrave.domain.utils.FilterState
 import com.maxrave.domain.utils.connectArtists
 import com.maxrave.domain.utils.toListName
 import com.maxrave.logger.Logger
-import com.maxrave.simpmusic.Platform
 import com.maxrave.simpmusic.expect.copyToClipboard
 import com.maxrave.simpmusic.expect.shareUrl
+import com.maxrave.simpmusic.expect.ui.persistPickedImage
 import com.maxrave.simpmusic.expect.ui.photoPickerResult
 import com.maxrave.simpmusic.extension.displayNameRes
 import com.maxrave.simpmusic.extension.greyScale
-import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.ui.icon.AccessAlarm
 import com.maxrave.simpmusic.ui.icon.Add
 import com.maxrave.simpmusic.ui.icon.AddCircleOutline
 import com.maxrave.simpmusic.ui.icon.AddPhotoAlternate
 import com.maxrave.simpmusic.ui.icon.Album
 import com.maxrave.simpmusic.ui.icon.CheckCircle
+import com.maxrave.simpmusic.ui.icon.Close
 import com.maxrave.simpmusic.ui.icon.ContentCopy
 import com.maxrave.simpmusic.ui.icon.Delete
 import com.maxrave.simpmusic.ui.icon.Done
@@ -152,18 +161,21 @@ import com.maxrave.simpmusic.ui.icon.FavoriteBorder
 import com.maxrave.simpmusic.ui.icon.KeyboardArrowDown
 import com.maxrave.simpmusic.ui.icon.KeyboardDoubleArrowDown
 import com.maxrave.simpmusic.ui.icon.KeyboardDoubleArrowUp
+import com.maxrave.simpmusic.ui.icon.SkipNext
 import com.maxrave.simpmusic.ui.icon.Lyrics
 import com.maxrave.simpmusic.ui.icon.PeopleAlt
 import com.maxrave.simpmusic.ui.icon.PlayCircle
 import com.maxrave.simpmusic.ui.icon.PlaylistAdd
 import com.maxrave.simpmusic.ui.icon.QueueMusic
 import com.maxrave.simpmusic.ui.icon.Remove
+import com.maxrave.simpmusic.ui.icon.Search
 import com.maxrave.simpmusic.ui.icon.Sensors
 import com.maxrave.simpmusic.ui.icon.Share
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.icon.Speed
 import com.maxrave.simpmusic.ui.icon.Sync
 import com.maxrave.simpmusic.ui.icon.SyncDisabled
+import com.maxrave.simpmusic.ui.icon.ThumbDownOutline
 import com.maxrave.simpmusic.ui.icon.Tune
 import com.maxrave.simpmusic.ui.icon.Update
 import com.maxrave.simpmusic.ui.navigation.destination.list.AlbumDestination
@@ -175,8 +187,6 @@ import com.maxrave.simpmusic.viewModel.NowPlayingBottomSheetViewModel
 import com.maxrave.simpmusic.viewModel.SharedViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -191,22 +201,28 @@ import org.koin.compose.viewmodel.koinViewModel
 import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.add_to_a_playlist
 import simpmusic.composeapp.generated.resources.add_to_queue
+import simpmusic.composeapp.generated.resources.add_to_queue_disabled_endless
+import simpmusic.composeapp.generated.resources.add_to_queue_disabled_radio
 import simpmusic.composeapp.generated.resources.album
 import simpmusic.composeapp.generated.resources.artists
-import simpmusic.composeapp.generated.resources.baseline_downloaded
 import simpmusic.composeapp.generated.resources.baseline_favorite_24
 import simpmusic.composeapp.generated.resources.better_lyrics
 import simpmusic.composeapp.generated.resources.bitrate
 import simpmusic.composeapp.generated.resources.bpm
 import simpmusic.composeapp.generated.resources.can_not_be_empty
 import simpmusic.composeapp.generated.resources.cancel
+import simpmusic.composeapp.generated.resources.crop_cover
 import simpmusic.composeapp.generated.resources.codec
 import simpmusic.composeapp.generated.resources.copied_to_clipboard
 import simpmusic.composeapp.generated.resources.delete
 import simpmusic.composeapp.generated.resources.delete_playlist
 import simpmusic.composeapp.generated.resources.delete_song_from_playlist
 import simpmusic.composeapp.generated.resources.description
+import simpmusic.composeapp.generated.resources.dislike_on_youtube
+import simpmusic.composeapp.generated.resources.disliked
+import simpmusic.composeapp.generated.resources.disliking
 import simpmusic.composeapp.generated.resources.download
+import simpmusic.composeapp.generated.resources.download_disabled_live
 import simpmusic.composeapp.generated.resources.download_speed
 import simpmusic.composeapp.generated.resources.download_this_song_video_file_to_your_device
 import simpmusic.composeapp.generated.resources.downloaded
@@ -217,6 +233,7 @@ import simpmusic.composeapp.generated.resources.edit_thumbnail
 import simpmusic.composeapp.generated.resources.edit_title
 import simpmusic.composeapp.generated.resources.endless_queue
 import simpmusic.composeapp.generated.resources.error_occurred
+import simpmusic.composeapp.generated.resources.extract_source
 import simpmusic.composeapp.generated.resources.itag
 import simpmusic.composeapp.generated.resources.key
 import simpmusic.composeapp.generated.resources.like
@@ -229,9 +246,12 @@ import simpmusic.composeapp.generated.resources.merging_audio_and_video
 import simpmusic.composeapp.generated.resources.mime_type
 import simpmusic.composeapp.generated.resources.move_down
 import simpmusic.composeapp.generated.resources.move_up
+import simpmusic.composeapp.generated.resources.move_to_play_next
+import simpmusic.composeapp.generated.resources.delete_from_queue
 import simpmusic.composeapp.generated.resources.no_album
 import simpmusic.composeapp.generated.resources.no_description
 import simpmusic.composeapp.generated.resources.no_playlist_found
+import simpmusic.composeapp.generated.resources.no_results_found
 import simpmusic.composeapp.generated.resources.now_playing
 import simpmusic.composeapp.generated.resources.now_playing_upper
 import simpmusic.composeapp.generated.resources.ok
@@ -245,10 +265,12 @@ import simpmusic.composeapp.generated.resources.plays
 import simpmusic.composeapp.generated.resources.processing
 import simpmusic.composeapp.generated.resources.queue
 import simpmusic.composeapp.generated.resources.radio
+import simpmusic.composeapp.generated.resources.remove_from_cache
 import simpmusic.composeapp.generated.resources.save
 import simpmusic.composeapp.generated.resources.save_to_local_playlist
 import simpmusic.composeapp.generated.resources.saved_to_local_playlist
 import simpmusic.composeapp.generated.resources.scale
+import simpmusic.composeapp.generated.resources.search
 import simpmusic.composeapp.generated.resources.set
 import simpmusic.composeapp.generated.resources.share
 import simpmusic.composeapp.generated.resources.share_url
@@ -303,10 +325,30 @@ fun InfoPlayerBottomSheet(
     val screenDataState by sharedViewModel.nowPlayingScreenData.collectAsStateWithLifecycle()
     val songEntity by sharedViewModel.nowPlayingState.map { it?.songEntity }.collectAsState(null)
     val format by sharedViewModel.format.collectAsState(null)
+    val extractSource by sharedViewModel.extractSource.collectAsState()
     val downloadProgress by sharedViewModel.downloadFileProgress.collectAsStateWithLifecycle()
 
-    if (downloadProgress != DownloadProgress.INIT) {
-        Box(modifier = Modifier.fillMaxSize()) {
+    ModalBottomSheet(
+        onDismissRequest = {
+            onDismiss()
+        },
+        containerColor = rememberSurfaceDarkColors().container,
+        contentColor = Color.Transparent,
+        dragHandle = {},
+        scrimColor = Color.Black.copy(alpha = .5f),
+        sheetState = sheetState,
+        modifier = Modifier.fillMaxHeight(),
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+        shape = RectangleShape,
+    ) {
+        // This dialog MUST stay inside the sheet's content lambda. A Dialog is its own window
+        // (Android ComponentDialog) / scene layer (skiko), so nothing in the layout tree orders
+        // it — the layer attached LAST wins, and DisposableEffects attach in composition order.
+        // Written as a sibling BEFORE ModalBottomSheet it lost to the sheet whenever both entered
+        // composition in the same pass: reopening the sheet mid-download, or an Android config
+        // change (downloadProgress lives in the ViewModel, so it survives this composable leaving).
+        // Nested here, the sheet's layer necessarily exists first, so the dialog is always on top.
+        if (downloadProgress != DownloadProgress.INIT) {
             BasicAlertDialog(
                 onDismissRequest = { },
                 modifier = Modifier.wrapContentSize(),
@@ -424,21 +466,7 @@ fun InfoPlayerBottomSheet(
                 }
             }
         }
-    }
 
-    ModalBottomSheet(
-        onDismissRequest = {
-            onDismiss()
-        },
-        containerColor = rememberSurfaceDarkColors().container,
-        contentColor = Color.Transparent,
-        dragHandle = {},
-        scrimColor = Color.Black.copy(alpha = .5f),
-        sheetState = sheetState,
-        modifier = Modifier.fillMaxHeight(),
-        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
-        shape = RectangleShape,
-    ) {
         Card(
             modifier =
                 Modifier
@@ -767,6 +795,32 @@ fun InfoPlayerBottomSheet(
                 )
 
                 Text(
+                    text = stringResource(Res.string.extract_source),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 10.dp),
+                    textAlign = TextAlign.Center,
+                    style = typo().labelMedium,
+                    color = rememberSurfaceDarkColors().content,
+                )
+                Text(
+                    text = extractSource ?: stringResource(Res.string.unknown),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .wrapContentHeight(align = Alignment.CenterVertically)
+                            .basicMarquee(
+                                iterations = Int.MAX_VALUE,
+                                animationMode = MarqueeAnimationMode.Immediately,
+                            ).focusable()
+                            .padding(horizontal = 10.dp),
+                    style = typo().bodyMedium,
+                    maxLines = 1,
+                    textAlign = TextAlign.Center,
+                )
+
+                Text(
                     text = stringResource(Res.string.plays),
                     modifier =
                         Modifier
@@ -900,6 +954,9 @@ fun InfoPlayerBottomSheet(
 @Composable
 fun QueueBottomSheet(
     onDismiss: () -> Unit,
+    navController: NavController,
+    /** Closes whatever screen hosts this sheet, before a row's sheet opens an artist or album page. */
+    onNavigateToOtherScreen: () -> Unit,
     sharedViewModel: SharedViewModel = koinInject(),
     musicServiceHandler: MediaPlayerHandler = koinInject<MediaPlayerHandler>(),
     dataStoreManager: DataStoreManager = koinInject(),
@@ -919,8 +976,8 @@ fun QueueBottomSheet(
             }
         }
     var overscrollJob by remember { mutableStateOf<Job?>(null) }
-    var shouldShowQueueItemBottomSheet by rememberSaveable { mutableStateOf(false) }
-    var clickMoreIndex by rememberSaveable { mutableIntStateOf(0) }
+    // The row whose ⋯ was tapped, as its queue position and the track that was there.
+    var moreFor by remember { mutableStateOf<Pair<Int, Track>?>(null) }
     val screenDataState by sharedViewModel.nowPlayingScreenData.collectAsStateWithLifecycle()
     val songEntity by sharedViewModel.nowPlayingState.map { it?.songEntity }.collectAsState(null)
     val queueData by musicServiceHandler.queueData.collectAsStateWithLifecycle()
@@ -957,10 +1014,6 @@ fun QueueBottomSheet(
             }
     }
 
-    LaunchedEffect(queue) {
-        Logger.w("QueueBottomSheet", "queue: $queue")
-    }
-
     DisposableEffect(Unit) {
         val currentSongIndex = musicServiceHandler.currentOrderIndex().takeIf { i -> i > -1 } ?: 0
         Logger.d("QueueBottomSheet", "currentSongIndex: $currentSongIndex")
@@ -971,15 +1024,17 @@ fun QueueBottomSheet(
     }
 
     val showQueueItemBottomSheet: (Int) -> Unit = { index ->
-        clickMoreIndex = index
-        shouldShowQueueItemBottomSheet = true
+        moreFor = queue.getOrNull(index)?.let { index to it }
     }
 
-    if (shouldShowQueueItemBottomSheet) {
-        QueueItemBottomSheet(
-            onDismiss = { shouldShowQueueItemBottomSheet = false },
-            index = clickMoreIndex,
-            musicServiceHandler = musicServiceHandler,
+    // Composed before the queue's own sheet but entered later, on a tap, so it attaches on top.
+    moreFor?.let { (index, track) ->
+        NowPlayingBottomSheet(
+            onDismiss = { moreFor = null },
+            navController = navController,
+            song = track.toSongEntity(),
+            queuePosition = QueuePosition(index, track.videoId),
+            onNavigateToOtherScreen = onNavigateToOtherScreen,
         )
     }
 
@@ -1110,6 +1165,15 @@ fun QueueBottomSheet(
                     }
                 }
                 Spacer(modifier = Modifier.height(10.dp))
+                val queueRowKeys =
+                    remember(queue) {
+                        val seen = HashMap<String, Int>(queue.size)
+                        queue.map { track ->
+                            val occurrence = seen.getOrElse(track.videoId) { 0 }
+                            seen[track.videoId] = occurrence + 1
+                            "${track.videoId}#$occurrence"
+                        }
+                    }
                 LazyColumn(
                     horizontalAlignment = Alignment.Start,
                     state = lazyListState,
@@ -1159,7 +1223,12 @@ fun QueueBottomSheet(
                 ) {
                     itemsIndexed(
                         queue,
-                        key = { i, t -> i.toString() + t.videoId },
+                        // Keyed by the track, NOT by its position: a radio queue drops played
+                        // tracks off the front, and a position-based key changes for every row
+                        // when that happens, so the list loses its scroll anchor and jumps under
+                        // the user. The occurrence number keeps the key unique when a radio
+                        // repeats a song.
+                        key = { i, t -> queueRowKeys.getOrElse(i) { t.videoId } },
                     ) { index, track ->
                         if (index != -1) {
                             DraggableItem(
@@ -1209,170 +1278,68 @@ fun QueueBottomSheet(
     }
 }
 
-private enum class QueueItemAction {
-    UP,
-    DOWN,
-    DELETE,
+/** A queue row a song sheet was opened from: its position, and the track that sat there then. */
+data class QueuePosition(
+    val index: Int,
+    val videoId: String,
+)
+
+/** What the YouTube Dislike action in the song sheet shows. */
+enum class YouTubeDislikeState {
+    DISLIKE,
+    DISLIKING,
+    DISLIKED,
 }
 
+/**
+ * The rows only a queue track has: move it up, down or to play next, or take it out of the queue.
+ *
+ * They act by POSITION, and a radio trims its played history off the front while the sheet can be
+ * open, which moves every row. If the track is no longer at its position they do nothing rather
+ * than move or delete whatever slid into its place.
+ */
 @Composable
-@ExperimentalMaterial3Api
-fun QueueItemBottomSheet(
-    onDismiss: () -> Unit,
-    index: Int,
+private fun QueueItemActions(
+    position: QueuePosition,
+    onDone: () -> Unit,
     musicServiceHandler: MediaPlayerHandler = koinInject<MediaPlayerHandler>(),
 ) {
     val coroutineScope = rememberCoroutineScope()
-    val modelBottomSheetState =
-        rememberModalBottomSheetState(
-            skipPartiallyExpanded = true,
-        )
-    val hideModalBottomSheet: () -> Unit =
-        {
-            coroutineScope.launch {
-                modelBottomSheetState.hide()
-                onDismiss()
-            }
+    val index = position.index
+    val queueSize =
+        musicServiceHandler.queueData.value
+            ?.data
+            ?.listTracks
+            ?.size ?: 0
+    val current = musicServiceHandler.currentOrderIndex()
+    val act: (suspend () -> Unit) -> Unit = { action ->
+        val stillThere =
+            musicServiceHandler.queueData.value
+                ?.data
+                ?.listTracks
+                ?.getOrNull(index)
+                ?.videoId == position.videoId
+        if (stillThere) coroutineScope.launch { action() }
+        onDone()
+    }
+    if (index > 0) {
+        ActionButton(icon = SimpIcons.KeyboardDoubleArrowUp, text = Res.string.move_up) {
+            act { musicServiceHandler.moveItemUp(index) }
         }
-    val listAction =
-        listOf(
-            QueueItemAction.UP,
-            QueueItemAction.DOWN,
-            QueueItemAction.DELETE,
-        )
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = modelBottomSheetState,
-        containerColor = Color.Transparent,
-        contentColor = Color.Transparent,
-        dragHandle = null,
-        scrimColor = Color.Black.copy(alpha = .5f),
-        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
-    ) {
-        Card(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .wrapContentHeight(),
-            shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
-            colors = CardDefaults.cardColors().copy(containerColor = rememberSurfaceDarkColors().container),
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Spacer(modifier = Modifier.height(5.dp))
-                Card(
-                    modifier =
-                        Modifier
-                            .width(60.dp)
-                            .height(4.dp),
-                    colors =
-                        CardDefaults.cardColors().copy(
-                            containerColor = rememberSurfaceDarkColors().handle,
-                        ),
-                    shape = RoundedCornerShape(50),
-                ) {}
-                Spacer(modifier = Modifier.height(5.dp))
-                LazyColumn {
-                    val canMoveUp =
-                        index > 0 &&
-                            index < (
-                                musicServiceHandler.queueData.value
-                                    ?.data
-                                    ?.listTracks
-                                    ?.size ?: 0
-                            )
-                    val canMoveDown =
-                        index >= 0 &&
-                            index < (
-                                musicServiceHandler.queueData.value
-                                    ?.data
-                                    ?.listTracks
-                                    ?.size ?: 0
-                            ) - 1
-                    items(listAction) { action ->
-                        val disable =
-                            when (action) {
-                                QueueItemAction.UP -> !canMoveUp
-                                QueueItemAction.DOWN -> !canMoveDown
-                                QueueItemAction.DELETE -> false
-                            }
-                        if (disable) return@items
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        hideModalBottomSheet()
-                                        when (action) {
-                                            QueueItemAction.UP -> {
-                                                coroutineScope.launch {
-                                                    musicServiceHandler.moveItemUp(index)
-                                                }
-                                            }
-
-                                            QueueItemAction.DOWN -> {
-                                                coroutineScope.launch {
-                                                    musicServiceHandler.moveItemDown(index)
-                                                }
-                                            }
-
-                                            QueueItemAction.DELETE -> {
-                                                musicServiceHandler.removeMediaItem(index)
-                                            }
-                                        }
-                                    },
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier =
-                                    Modifier
-                                        .padding(20.dp)
-                                        .align(Alignment.CenterStart),
-                            ) {
-                                when (action) {
-                                    QueueItemAction.UP -> {
-                                        Image(
-                                            imageVector = SimpIcons.KeyboardDoubleArrowUp,
-                                            contentDescription = "Move up",
-                                        )
-                                    }
-
-                                    QueueItemAction.DOWN -> {
-                                        Image(
-                                            imageVector = SimpIcons.KeyboardDoubleArrowDown,
-                                            contentDescription = "Move down",
-                                        )
-                                    }
-
-                                    QueueItemAction.DELETE -> {
-                                        Image(
-                                            imageVector = SimpIcons.Delete,
-                                            contentDescription = "Delete",
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(
-                                    text =
-                                        stringResource(
-                                            when (action) {
-                                                QueueItemAction.UP -> Res.string.move_up
-                                                QueueItemAction.DOWN -> Res.string.move_down
-                                                QueueItemAction.DELETE -> Res.string.delete
-                                            },
-                                        ),
-                                    style = typo().labelSmall,
-                                )
-                            }
-                        }
-                    }
-                    item {
-                        EndOfModalBottomSheet()
-                    }
-                }
-            }
+    }
+    if (index < queueSize - 1) {
+        ActionButton(icon = SimpIcons.KeyboardDoubleArrowDown, text = Res.string.move_down) {
+            act { musicServiceHandler.moveItemDown(index) }
         }
+    }
+    // Hidden on the playing track and on the one already next: there is nowhere to move them.
+    if (current >= 0 && index != current && index != current + 1) {
+        ActionButton(icon = SimpIcons.SkipNext, text = Res.string.move_to_play_next) {
+            act { musicServiceHandler.moveItemToPlayNext(index) }
+        }
+    }
+    ActionButton(icon = SimpIcons.Delete, text = Res.string.delete_from_queue) {
+        act { musicServiceHandler.removeMediaItem(index) }
     }
 }
 
@@ -1388,6 +1355,17 @@ fun NowPlayingBottomSheet(
     onNavigateToOtherScreen: () -> Unit = {},
     onDelete: (() -> Unit)? = null,
     onLibraryDelete: (() -> Unit)? = null,
+    /** Set when opened from the "Cached" list: adds a row that drops the song from the player cache. */
+    onRemoveFromCache: (() -> Unit)? = null,
+    /** Set when opened from a queue row: adds that row's move and delete actions at the top. */
+    queuePosition: QueuePosition? = null,
+    /**
+     * The now-playing track's YouTube dislike state, set only by the Now Playing screen (where the
+     * rating is fetched) and only while signed in to YouTube; null hides the Dislike action.
+     */
+    youTubeDislike: YouTubeDislikeState? = null,
+    /** Called with the videoId of the track this sheet shows. */
+    onYouTubeDislike: (videoId: String) -> Unit = {},
     dataStoreManager: DataStoreManager = koinInject<DataStoreManager>(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -1632,11 +1610,11 @@ fun NowPlayingBottomSheet(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.verticalScroll(rememberScrollState()),
                 ) {
-                    Spacer(modifier = Modifier.height(5.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Card(
                         modifier =
                             Modifier
-                                .width(60.dp)
+                                .width(32.dp)
                                 .height(4.dp),
                         colors =
                             CardDefaults.cardColors().copy(
@@ -1644,13 +1622,12 @@ fun NowPlayingBottomSheet(
                             ),
                         shape = RoundedCornerShape(50),
                     ) {}
-                    Spacer(modifier = Modifier.height(5.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Row(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .height(65.dp)
-                                .padding(10.dp),
+                                .padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         val thumb = uiState.songUIState.thumbnails
@@ -1666,18 +1643,18 @@ fun NowPlayingBottomSheet(
                             placeholder = rememberHolderPainter(),
                             error = rememberHolderPainter(),
                             contentDescription = null,
-                            contentScale = ContentScale.Inside,
+                            contentScale = ContentScale.Crop,
                             modifier =
                                 Modifier
                                     .align(Alignment.CenterVertically)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .size(60.dp),
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(6.dp)),
                         )
-                        Spacer(modifier = Modifier.width(20.dp))
-                        Column(verticalArrangement = Arrangement.Center) {
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                             Text(
                                 text = uiState.songUIState.title,
-                                style = typo().labelMedium,
+                                style = typo().labelSmall,
                                 // typo() bakes a colour into the style, computed from the app's own
                                 // scheme — on this always-dark sheet that reads as washed out next
                                 // to the ActionButton rows below, which take their colour from here.
@@ -1694,7 +1671,7 @@ fun NowPlayingBottomSheet(
                                     uiState.songUIState.listArtists
                                         .toListName()
                                         .connectArtists(),
-                                style = typo().bodyMedium,
+                                style = typo().bodySmall,
                                 color = rememberSurfaceDarkColors().subtitle,
                                 maxLines = 1,
                                 modifier =
@@ -1705,12 +1682,14 @@ fun NowPlayingBottomSheet(
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(5.dp))
                     HorizontalDivider(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                         thickness = 1.dp,
                     )
                     Spacer(modifier = Modifier.height(2.dp))
+                    if (queuePosition != null) {
+                        QueueItemActions(position = queuePosition, onDone = hideModalBottomSheet)
+                    }
                     Crossfade(targetState = onDelete != null) {
                         if (it) {
                             ActionButton(
@@ -1733,6 +1712,15 @@ fun NowPlayingBottomSheet(
                             }
                         }
                     }
+                    if (onRemoveFromCache != null) {
+                        ActionButton(
+                            icon = SimpIcons.Delete,
+                            text = Res.string.remove_from_cache,
+                        ) {
+                            hideModalBottomSheet()
+                            onRemoveFromCache()
+                        }
+                    }
                     CheckBoxActionButton(
                         defaultChecked = uiState.songUIState.liked,
                         isHeartIcon = true,
@@ -1740,6 +1728,25 @@ fun NowPlayingBottomSheet(
                             viewModel.onUIEvent(NowPlayingBottomSheetUIEvent.ToggleLike)
                         },
                     )
+                    if (youTubeDislike != null) {
+                        ActionButton(
+                            icon = SimpIcons.ThumbDownOutline,
+                            text =
+                                when (youTubeDislike) {
+                                    YouTubeDislikeState.DISLIKE -> Res.string.dislike_on_youtube
+                                    YouTubeDislikeState.DISLIKING -> Res.string.disliking
+                                    YouTubeDislikeState.DISLIKED -> Res.string.disliked
+                                },
+                            enable = youTubeDislike == YouTubeDislikeState.DISLIKE,
+                        ) {
+                            onYouTubeDislike(uiState.songUIState.videoId)
+                        }
+                    }
+                    // A live broadcast has no file to keep. The row stays visible, disabled, so the
+                    // reason can be read — the same way Add to queue says why it is blocked.
+                    val downloadBlockedAsLive =
+                        uiState.songUIState.isLive &&
+                            uiState.songUIState.downloadState == DownloadState.STATE_NOT_DOWNLOADED
                     ActionButton(
                         icon =
                             when (uiState.songUIState.downloadState) {
@@ -1758,13 +1765,18 @@ fun NowPlayingBottomSheet(
                                 Color.Unspecified
                             },
                         text =
-                            when (uiState.songUIState.downloadState) {
-                                DownloadState.STATE_NOT_DOWNLOADED -> Res.string.download
-                                DownloadState.STATE_DOWNLOADING -> Res.string.downloading
-                                DownloadState.STATE_DOWNLOADED -> Res.string.downloaded
-                                DownloadState.STATE_PREPARING -> Res.string.downloading
-                                else -> Res.string.download
+                            if (downloadBlockedAsLive) {
+                                Res.string.download_disabled_live
+                            } else {
+                                when (uiState.songUIState.downloadState) {
+                                    DownloadState.STATE_NOT_DOWNLOADED -> Res.string.download
+                                    DownloadState.STATE_DOWNLOADING -> Res.string.downloading
+                                    DownloadState.STATE_DOWNLOADED -> Res.string.downloaded
+                                    DownloadState.STATE_PREPARING -> Res.string.downloading
+                                    else -> Res.string.download
+                                }
                             },
+                        enable = !downloadBlockedAsLive,
                     ) {
                         viewModel.onUIEvent(NowPlayingBottomSheetUIEvent.Download)
                     }
@@ -1775,17 +1787,22 @@ fun NowPlayingBottomSheet(
                         viewModel.resetPlaylists()
                         addToAPlaylist = true
                     }
-                    ActionButton(
-                        icon = SimpIcons.PlayCircle,
-                        text = Res.string.play_next,
-                    ) {
-                        viewModel.onUIEvent(NowPlayingBottomSheetUIEvent.PlayNext)
-                    }
-                    ActionButton(
-                        icon = SimpIcons.QueueMusic,
-                        text = Res.string.add_to_queue,
-                    ) {
-                        viewModel.onUIEvent(NowPlayingBottomSheetUIEvent.AddToQueue)
+                    // A queue row is already in the queue: its own rows above move it instead.
+                    if (queuePosition == null) {
+                        ActionButton(
+                            icon = SimpIcons.PlayCircle,
+                            text = Res.string.play_next,
+                        ) {
+                            viewModel.onUIEvent(NowPlayingBottomSheetUIEvent.PlayNext)
+                        }
+                        val addToQueueBlock = rememberAddToQueueBlock()
+                        ActionButton(
+                            icon = SimpIcons.QueueMusic,
+                            text = addToQueueBlock.addToQueueLabel(),
+                            enable = addToQueueBlock == null,
+                        ) {
+                            viewModel.onUIEvent(NowPlayingBottomSheetUIEvent.AddToQueue)
+                        }
                     }
                     ActionButton(
                         icon = SimpIcons.PeopleAlt,
@@ -1805,10 +1822,15 @@ fun NowPlayingBottomSheet(
                         text =
                             when {
                                 uiState.songUIState.album == null -> Res.string.no_album
-                                uiState.songUIState.album?.name.isNullOrBlank() -> Res.string.album
+                                uiState.songUIState.album
+                                    ?.name
+                                    .isNullOrBlank() -> Res.string.album
                                 else -> null
                             },
-                        textString = uiState.songUIState.album?.name?.takeIf { it.isNotBlank() },
+                        textString =
+                            uiState.songUIState.album
+                                ?.name
+                                ?.takeIf { it.isNotBlank() },
                         enable = uiState.songUIState.album != null,
                     ) {
                         uiState.songUIState.album?.id?.let { id ->
@@ -1873,12 +1895,11 @@ fun NowPlayingBottomSheet(
                     }
                     Crossfade(targetState = setSleepTimerEnable) {
                         if (it) {
-                            val isDesktop = getPlatform() == Platform.Desktop
                             ActionButton(
                                 icon = SimpIcons.Speed,
                                 text =
                                     if (crossfadeEnabled != DataStoreManager.TRUE) {
-                                        if (isDesktop) Res.string.playback_speed else Res.string.playback_speed_pitch
+                                        Res.string.playback_speed_pitch
                                     } else {
                                         Res.string.playback_speed_pitch_disabled
                                     },
@@ -1900,6 +1921,32 @@ fun NowPlayingBottomSheet(
         }
     }
 }
+
+/**
+ * Why Add to queue is unavailable for the queue playing now, or null when it is not; see
+ * [addToQueueBlock]. Each sheet reads it itself, so every Add to queue button follows the same rule
+ * without its screen having to pass anything in.
+ */
+@Composable
+fun rememberAddToQueueBlock(): AddToQueueBlock? {
+    val handler = koinInject<MediaPlayerHandler>()
+    val dataStoreManager = koinInject<DataStoreManager>()
+    val queueData by handler.queueData.collectAsState()
+    val endlessQueueFlow =
+        remember(dataStoreManager) {
+            dataStoreManager.endlessQueue.map { it == DataStoreManager.TRUE }
+        }
+    val endlessQueue by endlessQueueFlow.collectAsState(false)
+    return queueData.addToQueueBlock(endlessQueue)
+}
+
+/** The Add to queue label, with the reason in brackets while it is blocked. */
+fun AddToQueueBlock?.addToQueueLabel(): StringResource =
+    when (this) {
+        null -> Res.string.add_to_queue
+        AddToQueueBlock.RADIO -> Res.string.add_to_queue_disabled_radio
+        AddToQueueBlock.ENDLESS_QUEUE -> Res.string.add_to_queue_disabled_endless
+    }
 
 @Composable
 fun ActionButton(
@@ -2016,12 +2063,20 @@ fun HeartCheckBox(
     tint: Color = rememberSurfaceDarkColors().content,
     onStateChange: (() -> Unit)? = null,
 ) {
+    val burstState = rememberHeartBurstState()
     Box(
         modifier =
             Modifier
                 .size(size.dp)
+                // Before .clip: the burst draws outside the button bounds and the circle clip
+                // would trim it to the heart's own circle.
+                .heartBurst(burstState)
                 .clip(CircleShape)
                 .clickable {
+                    // Judged at TAP time: tapping an unchecked heart is a like. Firing from the
+                    // tap — not from watching `checked` — is what keeps a track change onto an
+                    // already-liked song from celebrating a like nobody gave.
+                    if (!checked) burstState.fire()
                     onStateChange?.invoke()
                 },
     ) {
@@ -2128,8 +2183,12 @@ fun PlaybackSpeedPitchBottomSheet(
                         )
                     }
                 }
-                // Pitch row — hidden on Desktop (LibVLC doesn't support independent pitch control)
-                if (getPlatform() != Platform.Desktop) {
+                // Shown on every platform. It used to be hidden on Desktop because LibVLC had no
+                // independent pitch control, but that backend is long gone — mpv shifts pitch with
+                // its rubberband filter. The control is still locked out while crossfade is on,
+                // handled by the caller: crossfade owns mpv's filter chain and the two would fight
+                // over it.
+                run {
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2519,7 +2578,12 @@ fun AddToPlaylistModalBottomSheet(
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(horizontal = 10.dp),
+                    modifier =
+                        Modifier
+                            .padding(horizontal = 10.dp)
+                            // The sheet is handed no insets, so nothing else lifts the list above the keyboard.
+                            // Navigation bars are left out: EndOfModalBottomSheet already pads for them.
+                            .windowInsetsPadding(WindowInsets.ime.exclude(WindowInsets.navigationBars)),
                 ) {
                     Spacer(modifier = Modifier.height(5.dp))
                     Card(
@@ -2529,6 +2593,62 @@ fun AddToPlaylistModalBottomSheet(
                     ) {}
                     Spacer(modifier = Modifier.height(5.dp))
 
+                    var query by remember { mutableStateOf("") }
+                    var isSearchFocused by remember { mutableStateOf(false) }
+                    BasicTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        singleLine = true,
+                        textStyle = typo().labelSmall.copy(color = rememberSurfaceDarkColors().content),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(start = 12.dp, top = 8.dp, end = 12.dp, bottom = 4.dp)
+                                .height(40.dp)
+                                .clip(CircleShape)
+                                .background(rememberSurfaceDarkColors().content.copy(alpha = 0.08f))
+                                .onFocusChanged { focusState ->
+                                    isSearchFocused = focusState.isFocused
+                                    // A half-open sheet would leave the results under the keyboard.
+                                    if (focusState.isFocused) coroutineScope.launch { modelBottomSheetState.expand() }
+                                },
+                        decorationBox = { innerTextField ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Icon(
+                                    imageVector = SimpIcons.Search,
+                                    contentDescription = null,
+                                    tint = rememberSurfaceDarkColors().subtitle,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Box(modifier = Modifier.weight(1f)) {
+                                    if (query.isEmpty()) {
+                                        Text(
+                                            text = stringResource(Res.string.search),
+                                            style = typo().labelSmall,
+                                            color = rememberSurfaceDarkColors().subtitle,
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                                if (query.isEmpty()) {
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                } else {
+                                    IconButton(onClick = { query = "" }) {
+                                        Icon(
+                                            imageVector = SimpIcons.Close,
+                                            contentDescription = null,
+                                            tint = rememberSurfaceDarkColors().subtitle,
+                                            modifier = Modifier.size(20.dp),
+                                        )
+                                    }
+                                }
+                            }
+                        },
+                    )
+
                     val chipRowState = rememberScrollState()
                     var isYouTubePlaylistClicked by remember { mutableStateOf(false) }
                     if (listYouTubePlaylist.isNotEmpty()) {
@@ -2536,7 +2656,7 @@ fun AddToPlaylistModalBottomSheet(
                             modifier =
                                 Modifier
                                     .horizontalScroll(chipRowState)
-                                    .padding(horizontal = 15.dp)
+                                    .padding(horizontal = 12.dp)
                                     .padding(vertical = 8.dp)
                                     .background(Color.Transparent),
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -2556,20 +2676,30 @@ fun AddToPlaylistModalBottomSheet(
                         }
                     }
 
-                    if ((listLocalPlaylist.isEmpty() && !isYouTubePlaylistClicked) ||
-                        (listYouTubePlaylist.isEmpty() && isYouTubePlaylistClicked)
+                    val keyword = query.trim()
+                    val shownLocalPlaylist =
+                        remember(listLocalPlaylist, keyword) { listLocalPlaylist.filter { it.title.contains(keyword, ignoreCase = true) } }
+                    val shownYouTubePlaylist =
+                        remember(listYouTubePlaylist, keyword) { listYouTubePlaylist.filter { it.title.contains(keyword, ignoreCase = true) } }
+                    // While searching, the list takes the rest of the sheet. Otherwise the sheet resizes with every
+                    // keystroke and drags the field along with it.
+                    val listModifier = if (isSearchFocused || query.isNotEmpty()) Modifier.weight(1f) else Modifier
+                    if ((shownLocalPlaylist.isEmpty() && !isYouTubePlaylistClicked) ||
+                        (shownYouTubePlaylist.isEmpty() && isYouTubePlaylistClicked)
                     ) {
+                        val tabHasPlaylists =
+                            if (isYouTubePlaylistClicked) listYouTubePlaylist.isNotEmpty() else listLocalPlaylist.isNotEmpty()
                         Text(
-                            text = stringResource(Res.string.no_playlist_found),
+                            text = stringResource(if (tabHasPlaylists) Res.string.no_results_found else Res.string.no_playlist_found),
                             style = typo().labelSmall,
-                            modifier = Modifier.padding(20.dp),
+                            modifier = listModifier.padding(20.dp),
                             color = rememberSurfaceDarkColors().disabled,
                         )
                     } else {
-                        Crossfade(isYouTubePlaylistClicked) { clicked ->
+                        Crossfade(isYouTubePlaylistClicked, modifier = listModifier) { clicked ->
                             if (clicked) {
                                 LazyColumn {
-                                    items(listYouTubePlaylist) { playlist ->
+                                    items(shownYouTubePlaylist) { playlist ->
                                         Box(
                                             modifier =
                                                 Modifier
@@ -2587,6 +2717,7 @@ fun AddToPlaylistModalBottomSheet(
                                                 Image(
                                                     imageVector = SimpIcons.PlaylistAdd,
                                                     contentDescription = "",
+                                                    colorFilter = ColorFilter.tint(rememberSurfaceDarkColors().content),
                                                 )
                                                 Spacer(modifier = Modifier.width(10.dp))
                                                 Text(
@@ -2600,7 +2731,7 @@ fun AddToPlaylistModalBottomSheet(
                                 }
                             } else {
                                 LazyColumn {
-                                    items(listLocalPlaylist) { playlist ->
+                                    items(shownLocalPlaylist) { playlist ->
                                         Box(
                                             modifier =
                                                 Modifier
@@ -2620,11 +2751,16 @@ fun AddToPlaylistModalBottomSheet(
                                             ) {
                                                 Crossfade(targetState = playlist.tracks?.contains(videoId) == true) {
                                                     if (it) {
-                                                        Image(imageVector = SimpIcons.Done, contentDescription = "")
+                                                        Image(
+                                                            imageVector = SimpIcons.Done,
+                                                            contentDescription = "",
+                                                            colorFilter = ColorFilter.tint(rememberSurfaceDarkColors().content),
+                                                        )
                                                     } else {
                                                         Image(
                                                             imageVector = SimpIcons.PlaylistAdd,
                                                             contentDescription = "",
+                                                            colorFilter = ColorFilter.tint(rememberSurfaceDarkColors().content),
                                                         )
                                                     }
                                                 }
@@ -2632,7 +2768,14 @@ fun AddToPlaylistModalBottomSheet(
                                                 Text(
                                                     text = playlist.title,
                                                     style = typo().labelSmall,
-                                                    color = if (playlist.tracks?.contains(videoId) == true) rememberSurfaceDarkColors().disabled else rememberSurfaceDarkColors().content,
+                                                    color =
+                                                        if (playlist.tracks?.contains(videoId) ==
+                                                            true
+                                                        ) {
+                                                            rememberSurfaceDarkColors().disabled
+                                                        } else {
+                                                            rememberSurfaceDarkColors().content
+                                                        },
                                                 )
                                             }
                                         }
@@ -2711,6 +2854,7 @@ fun ArtistModalBottomSheet(
                                     Image(
                                         imageVector = SimpIcons.PeopleAlt,
                                         contentDescription = "",
+                                        colorFilter = ColorFilter.tint(rememberSurfaceDarkColors().content),
                                     )
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Text(text = artist.name, style = typo().labelSmall)
@@ -2839,9 +2983,11 @@ fun PlaylistBottomSheet(
                 ) {}
                 Spacer(modifier = Modifier.height(5.dp))
                 if (onAddToQueue != null) {
+                    val addToQueueBlock = rememberAddToQueueBlock()
                     ActionButton(
                         icon = SimpIcons.QueueMusic,
-                        text = Res.string.add_to_queue,
+                        text = addToQueueBlock.addToQueueLabel(),
+                        enable = addToQueueBlock == null,
                     ) {
                         onAddToQueue()
                         hideModalBottomSheet()
@@ -2906,10 +3052,39 @@ fun LocalPlaylistBottomSheet(
                 onDismiss()
             }
         }
+    // The picked file is cropped before it is used. A cover slot is square, so an uncropped 16:9
+    // photo would be squashed to fit — which is what it used to do.
+    var imageAwaitingCrop by remember { mutableStateOf<ByteArray?>(null) }
     val resultLauncher =
-        photoPickerResult {
-            it?.let { onEditThumbnail(it) }
+        photoPickerResult { pickedUri ->
+            pickedUri?.let { uri ->
+                coroutineScope.launch { imageAwaitingCrop = readLocalImageBytes(uri) }
+            }
         }
+    imageAwaitingCrop?.let { bytes ->
+        ImageCropperDialog(
+            imageBytes = bytes,
+            titleText = stringResource(Res.string.crop_cover),
+            confirmText = stringResource(Res.string.save),
+            cancelText = stringResource(Res.string.cancel),
+            onDismiss = { imageAwaitingCrop = null },
+            onCropped = { cropped ->
+                imageAwaitingCrop = null
+                coroutineScope.launch {
+                    // Written into the app's own storage, NOT reused from the picker's uri: that
+                    // one still points at the original uncropped file, and on Android the read
+                    // permission granted for it does not outlive the process.
+                    // Named after the CONTENT, not the clock. A fixed name would be overwritten
+                    // in place and Coil, which caches by url, would keep showing the previous
+                    // cover; a timestamp would leave a new file behind every time the user
+                    // re-picked the same picture. Hashing gives a fresh name for a new image and
+                    // the same name for the same one.
+                    persistPickedImage(cropped, "cover_${cropped.contentHashCode().toUInt()}.jpg")
+                        ?.let(onEditThumbnail)
+                }
+            },
+        )
+    }
     if (showEditTitle) {
         var newTitle by remember { mutableStateOf(title) }
         val showEditTitleSheetState =
@@ -2999,7 +3174,12 @@ fun LocalPlaylistBottomSheet(
                     ActionButton(icon = SimpIcons.AddPhotoAlternate, text = Res.string.edit_thumbnail) {
                         resultLauncher.launch()
                     }
-                    ActionButton(icon = SimpIcons.QueueMusic, text = Res.string.add_to_queue) {
+                    val addToQueueBlock = rememberAddToQueueBlock()
+                    ActionButton(
+                        icon = SimpIcons.QueueMusic,
+                        text = addToQueueBlock.addToQueueLabel(),
+                        enable = addToQueueBlock == null,
+                    ) {
                         onAddToQueue()
                     }
                     ActionButton(

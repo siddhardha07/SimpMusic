@@ -3,23 +3,27 @@ package com.maxrave.simpmusic
 import android.annotation.SuppressLint
 import android.app.Application
 import android.database.CursorWindow
+import android.os.Build
 import android.util.Log
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.work.Configuration
 import androidx.work.WorkManager
 import cat.ereza.customactivityoncrash.config.CaocConfig
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
+import coil3.annotation.ExperimentalCoilApi
+import coil3.compose.preferEndFirstIntrinsicSize
 import coil3.disk.DiskCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.CachePolicy
 import coil3.request.crossfade
+import com.maxrave.common.AppIdentity
 import com.maxrave.data.di.loader.loadAllModules
 import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.logger.Logger
 import com.maxrave.simpmusic.di.viewModelModule
 import com.maxrave.simpmusic.service.backup.AutoBackupScheduler
+import com.maxrave.simpmusic.utils.NetworkFirstInterceptor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -36,6 +40,7 @@ import org.koin.core.context.startKoin
 import org.koin.core.logger.Level
 import org.simpmusic.crashlytics.configCrashlytics
 import org.simpmusic.lastfm.configLastfm
+import java.io.File
 import java.lang.reflect.Field
 
 class SimpMusicApplication :
@@ -49,13 +54,21 @@ class SimpMusicApplication :
 
     override fun onCreate() {
         super.onCreate()
-        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+        // First, so the rest of startup reaches the App log too (Settings → Developer option).
+        Logger.enableFileLogging(File(filesDir, "logs").path)
         configCrashlytics(this, BuildKonfig.sentryDsn)
         configLastfm(BuildKonfig.lastfmApiKey, BuildKonfig.lastfmSecret)
         startKoin {
             androidLogger(level = Level.DEBUG)
             androidContext(this@SimpMusicApplication)
-            loadAllModules()
+            loadAllModules(
+                AppIdentity(
+                    applicationId = BuildConfig.APPLICATION_ID,
+                    versionName = BuildConfig.VERSION_NAME,
+                    platform = "Android ${Build.VERSION.RELEASE}",
+                    isDevBuild = BuildConfig.DEBUG,
+                ),
+            )
             loadKoinModules(viewModelModule)
         }
         // provide custom configuration
@@ -104,25 +117,34 @@ class SimpMusicApplication :
         Logger.w("Terminate", "Checking")
     }
 
-    override fun newImageLoader(context: PlatformContext): ImageLoader =
-        ImageLoader
-            .Builder(context)
-            .components {
-                add(
-                    OkHttpNetworkFetcherFactory(
-                        callFactory = {
-                            OkHttpClient()
-                        },
-                    ),
-                )
-            }.diskCachePolicy(CachePolicy.ENABLED)
-            .networkCachePolicy(CachePolicy.ENABLED)
-            .diskCache(
-                DiskCache
-                    .Builder()
-                    .directory(FileSystem.SYSTEM_TEMPORARY_DIRECTORY / "image_cache")
-                    .maxSizeBytes(512L * 1024 * 1024)
-                    .build(),
-            ).crossfade(true)
-            .build()
+    @OptIn(ExperimentalCoilApi::class)
+    override fun newImageLoader(context: PlatformContext): ImageLoader {
+        lateinit var imageLoader: ImageLoader
+        imageLoader =
+            ImageLoader
+                .Builder(context)
+                .components {
+                    add(NetworkFirstInterceptor { imageLoader })
+                    add(
+                        OkHttpNetworkFetcherFactory(
+                            callFactory = {
+                                OkHttpClient()
+                            },
+                        ),
+                    )
+                }.diskCachePolicy(CachePolicy.ENABLED)
+                .networkCachePolicy(CachePolicy.ENABLED)
+                .diskCache(
+                    DiskCache
+                        .Builder()
+                        .directory(FileSystem.SYSTEM_TEMPORARY_DIRECTORY / "image_cache")
+                        .maxSizeBytes(512L * 1024 * 1024)
+                        .build(),
+                ).crossfade(true)
+                // CrossfadePainter otherwise sizes itself as max(placeholder, image) once and keeps it,
+                // so a square holder over a wide banner leaves the banner zoomed after the fade.
+                .preferEndFirstIntrinsicSize(true)
+                .build()
+        return imageLoader
+    }
 }

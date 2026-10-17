@@ -11,22 +11,29 @@ import com.maxrave.common.SELECTED_LANGUAGE
 import com.maxrave.common.VIDEO_QUALITY
 import com.maxrave.domain.data.entities.DownloadState
 import com.maxrave.domain.data.entities.GoogleAccountEntity
+import com.maxrave.domain.data.model.lyrics.RomanizationDictionaryState
 import com.maxrave.domain.data.player.GenericCastState
+import com.maxrave.domain.data.player.ReverbPreset
 import com.maxrave.domain.extension.toNetScapeString
 import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.domain.mediaservice.handler.DownloadHandler
 import com.maxrave.domain.repository.AccountRepository
+import com.maxrave.domain.repository.ArtistRepository
 import com.maxrave.domain.repository.CacheRepository
 import com.maxrave.domain.repository.CommonRepository
+import com.maxrave.domain.repository.LyricsRomanizerRepository
 import com.maxrave.domain.repository.SongRepository
 import com.maxrave.domain.utils.LocalResource
 import com.maxrave.logger.LogLevel
 import com.maxrave.logger.Logger
 import com.maxrave.simpmusic.Platform
+import com.maxrave.simpmusic.expect.isOnUnmeteredNetwork
 import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.viewModel.base.BaseViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,19 +48,30 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.koin.core.component.inject
 import org.simpmusic.lastfm.isLastfmAvailable
+import org.jetbrains.compose.resources.getString as formatString
 import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.backup_create_failed
 import simpmusic.composeapp.generated.resources.backup_create_success
 import simpmusic.composeapp.generated.resources.backup_in_progress
 import simpmusic.composeapp.generated.resources.cancel
 import simpmusic.composeapp.generated.resources.clear_canvas_cache
+import simpmusic.composeapp.generated.resources.clear_listening_history
 import simpmusic.composeapp.generated.resources.clear_downloaded_cache
+import simpmusic.composeapp.generated.resources.clear_listening_history_done
 import simpmusic.composeapp.generated.resources.clear_player_cache
 import simpmusic.composeapp.generated.resources.clear_thumbnail_cache
+import simpmusic.composeapp.generated.resources.downloading_liked_songs
+import simpmusic.composeapp.generated.resources.error
 import simpmusic.composeapp.generated.resources.log_out_confirm_message
 import simpmusic.composeapp.generated.resources.restore_failed
 import simpmusic.composeapp.generated.resources.restore_in_progress
+import simpmusic.composeapp.generated.resources.romanization_japanese_dict_failed
+import simpmusic.composeapp.generated.resources.romanization_japanese_dict_ready
+import simpmusic.composeapp.generated.resources.smart_downloads_downloading
+import simpmusic.composeapp.generated.resources.smart_downloads_waiting_for_wifi
 import simpmusic.composeapp.generated.resources.warning
+import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Clock
 
 class SettingsViewModel(
     private val dataStoreManager: DataStoreManager,
@@ -61,11 +79,17 @@ class SettingsViewModel(
     private val songRepository: SongRepository,
     private val accountRepository: AccountRepository,
     private val cacheRepository: CacheRepository,
+    private val artistRepository: ArtistRepository,
+    private val lyricsRomanizerRepository: LyricsRomanizerRepository,
 ) : BaseViewModel() {
     private val databasePath: String? = commonRepository.getDatabasePath()
     private val downloadUtils: DownloadHandler by inject()
 
     val castState: StateFlow<GenericCastState> get() = mediaPlayerHandler.castState
+
+    /** READY everywhere the dictionary is bundled (Desktop), so only Android ever leaves it. */
+    val japaneseDictionaryState: StateFlow<RomanizationDictionaryState> =
+        lyricsRomanizerRepository.japaneseDictionaryState
 
     private var _location: MutableStateFlow<String?> = MutableStateFlow(null)
     val location: StateFlow<String?> = _location
@@ -79,8 +103,6 @@ class SettingsViewModel(
     val skipSilent: StateFlow<String?> = _skipSilent
     private var _savedPlaybackState: MutableStateFlow<String?> = MutableStateFlow(null)
     val savedPlaybackState: StateFlow<String?> = _savedPlaybackState
-    private var _saveRecentSongAndQueue: MutableStateFlow<String?> = MutableStateFlow(null)
-    val saveRecentSongAndQueue: StateFlow<String?> = _saveRecentSongAndQueue
     private var _lastCheckForUpdate: MutableStateFlow<String?> = MutableStateFlow(null)
     val lastCheckForUpdate: StateFlow<String?> = _lastCheckForUpdate
     private var _sponsorBlockEnabled: MutableStateFlow<String?> = MutableStateFlow(null)
@@ -101,14 +123,15 @@ class SettingsViewModel(
     val playerCacheLimit: StateFlow<Int?> = _playerCacheLimit
     private var _playVideoInsteadOfAudio: MutableStateFlow<String?> = MutableStateFlow(null)
     val playVideoInsteadOfAudio: StateFlow<String?> = _playVideoInsteadOfAudio
+
+    private var _radioAudioOnly: MutableStateFlow<String?> = MutableStateFlow(null)
+    val radioAudioOnly: StateFlow<String?> = _radioAudioOnly
     private var _videoQuality: MutableStateFlow<String?> = MutableStateFlow(null)
     val videoQuality: StateFlow<String?> = _videoQuality
     private var _thumbCacheSize = MutableStateFlow<Long?>(null)
     val thumbCacheSize: StateFlow<Long?> = _thumbCacheSize
     private var _canvasCacheSize: MutableStateFlow<Long?> = MutableStateFlow(null)
     val canvasCacheSize: StateFlow<Long?> = _canvasCacheSize
-    private var _translucentBottomBar: MutableStateFlow<String?> = MutableStateFlow(null)
-    val translucentBottomBar: StateFlow<String?> = _translucentBottomBar
     private var _usingProxy = MutableStateFlow(false)
     val usingProxy: StateFlow<Boolean> = _usingProxy
     private var _proxyType = MutableStateFlow(DataStoreManager.ProxyType.PROXY_TYPE_HTTP)
@@ -143,8 +166,20 @@ class SettingsViewModel(
     val crossfadeDuration: StateFlow<Int> = _crossfadeDuration
     private val _crossfadeDjMode = MutableStateFlow<Boolean>(true)
     val crossfadeDjMode: StateFlow<Boolean> = _crossfadeDjMode
+    private val _crossfadeSkipAlbum = MutableStateFlow<Boolean>(false)
+    val crossfadeSkipAlbum: StateFlow<Boolean> = _crossfadeSkipAlbum
+    private val _autoDownloadLikedSongs = MutableStateFlow<Boolean>(false)
+    val autoDownloadLikedSongs: StateFlow<Boolean> = _autoDownloadLikedSongs
+    private val _smartDownloadsEnabled = MutableStateFlow<Boolean>(false)
+    val smartDownloadsEnabled: StateFlow<Boolean> = _smartDownloadsEnabled
+    private val _smartDownloadsCount = MutableStateFlow<Int>(50)
+    val smartDownloadsCount: StateFlow<Int> = _smartDownloadsCount
     private val _youtubeSubtitleLanguage = MutableStateFlow<String>("")
     val youtubeSubtitleLanguage: StateFlow<String> = _youtubeSubtitleLanguage
+    private val _lyricsOffsetMs = MutableStateFlow<Int>(0)
+    val lyricsOffsetMs: StateFlow<Int> = _lyricsOffsetMs
+    private val _preferredAudioLanguage = MutableStateFlow("")
+    val preferredAudioLanguage: StateFlow<String> = _preferredAudioLanguage
 
     private var _helpBuildLyricsDatabase: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val helpBuildLyricsDatabase: StateFlow<Boolean> = _helpBuildLyricsDatabase
@@ -181,9 +216,6 @@ class SettingsViewModel(
 
     private val _lastfmScrobbleEnabled = MutableStateFlow(false)
     val lastfmScrobbleEnabled: StateFlow<Boolean> = _lastfmScrobbleEnabled
-
-    private val _keepServiceAlive = MutableStateFlow<Boolean>(false)
-    val keepServiceAlive: StateFlow<Boolean> = _keepServiceAlive
 
     private val _keepYouTubePlaylistOffline = MutableStateFlow<Boolean>(false)
     val keepYouTubePlaylistOffline: StateFlow<Boolean> = _keepYouTubePlaylistOffline
@@ -235,6 +267,7 @@ class SettingsViewModel(
 
     init {
         getYoutubeSubtitleLanguage()
+        getPreferredAudioLanguage()
         getHelpBuildLyricsDatabase()
         viewModelScope.launch {
             enableLiquidGlass.collect {
@@ -259,22 +292,26 @@ class SettingsViewModel(
         getSkipSilent()
         getSavedPlaybackState()
         getSendBackToGoogle()
-        getSaveRecentSongAndQueue()
         getLastCheckForUpdate()
         getSponsorBlockEnabled()
         getSponsorBlockCategories()
         getTranslationLanguage()
         getYoutubeSubtitleLanguage()
         getLyricsProvider()
+        getLyricsOffsetMs()
         getUseTranslation()
         getPlayVideoInsteadOfAudio()
+        getRadioAudioOnly()
         getVideoQuality()
         getSpotifyLogIn()
         getSpotifyLyrics()
+        getSyncFollowToYouTube()
+        getEqualizer()
+        getAudioEffects()
         getSpotifyCanvas()
+        getAMAnimatedArtwork()
         getUsingProxy()
         getCanvasCache()
-        getTranslucentBottomBar()
         getAutoCheckUpdate()
         getAIProvider()
         getAIApiKey()
@@ -286,6 +323,9 @@ class SettingsViewModel(
         getCrossfadeEnabled()
         getCrossfadeDuration()
         getCrossfadeDjMode()
+        getCrossfadeSkipAlbum()
+        getAutoDownloadLikedSongs()
+        getSmartDownloads()
         getContributorNameAndEmail()
         getBackupDownloaded()
         getUpdateChannel()
@@ -295,7 +335,6 @@ class SettingsViewModel(
         getDiscordRichPresenceEnabled()
         getLastfmSession()
         getLastfmScrobbleEnabled()
-        getKeepServiceAlive()
         getKeepYouTubePlaylistOffline()
         getCombineLocalAndYouTubeLiked()
         getDownloadQuality()
@@ -348,11 +387,7 @@ class SettingsViewModel(
     private fun getDownloadQuality() {
         viewModelScope.launch {
             dataStoreManager.downloadQuality.collect { quality ->
-                if (QUALITY.items.any { it.toString() == quality }) {
-                    _downloadQuality.emit(quality)
-                } else {
-                    _downloadQuality.emit(QUALITY.items[0].toString())
-                }
+                _downloadQuality.emit(QUALITY.normalize(quality))
             }
         }
     }
@@ -415,21 +450,6 @@ class SettingsViewModel(
         }
     }
 
-    private fun getKeepServiceAlive() {
-        viewModelScope.launch {
-            dataStoreManager.keepServiceAlive.collect { keepServiceAlive ->
-                _keepServiceAlive.value = keepServiceAlive == DataStoreManager.TRUE
-            }
-        }
-    }
-
-    fun setKeepServiceAlive(keepServiceAlive: Boolean) {
-        viewModelScope.launch {
-            dataStoreManager.setKeepServiceAlive(keepServiceAlive)
-            getKeepServiceAlive()
-        }
-    }
-
     private fun getCrossfadeEnabled() {
         viewModelScope.launch {
             dataStoreManager.crossfadeEnabled.collect { enabled ->
@@ -475,6 +495,88 @@ class SettingsViewModel(
         }
     }
 
+    private fun getCrossfadeSkipAlbum() {
+        viewModelScope.launch {
+            dataStoreManager.crossfadeSkipAlbum.collect { enabled ->
+                _crossfadeSkipAlbum.value = enabled == DataStoreManager.TRUE
+            }
+        }
+    }
+
+    fun setCrossfadeSkipAlbum(enabled: Boolean) {
+        viewModelScope.launch {
+            // No re-read afterwards: the collector started in init never completes, so it already
+            // picks this up. Calling the getter again would leave a second collector running for
+            // the life of the ViewModel, one more per toggle.
+            dataStoreManager.setCrossfadeSkipAlbum(enabled)
+        }
+    }
+
+    private fun getAutoDownloadLikedSongs() {
+        viewModelScope.launch {
+            dataStoreManager.autoDownloadLikedSongs.collect { enabled ->
+                _autoDownloadLikedSongs.value = enabled == DataStoreManager.TRUE
+            }
+        }
+    }
+
+    fun setAutoDownloadLikedSongs(enabled: Boolean) {
+        viewModelScope.launch {
+            dataStoreManager.setAutoDownloadLikedSongs(enabled)
+            // Switching it on also catches up on everything liked before now. Songs already
+            // downloaded are skipped, so toggling it off and on again queues nothing.
+            if (enabled) {
+                val queued = songRepository.downloadAllLikedSongs()
+                if (queued > 0) {
+                    // Not BaseViewModel.getString: that one takes no format arguments and would
+                    // leave the placeholder in the text.
+                    makeToast(formatString(Res.string.downloading_liked_songs, queued))
+                }
+            }
+        }
+    }
+
+    private fun getSmartDownloads() {
+        viewModelScope.launch {
+            dataStoreManager.smartDownloadsEnabled.collect { enabled ->
+                _smartDownloadsEnabled.value = enabled == DataStoreManager.TRUE
+            }
+        }
+        viewModelScope.launch {
+            dataStoreManager.smartDownloadsCount.collect { count ->
+                _smartDownloadsCount.value = count
+            }
+        }
+    }
+
+    fun setSmartDownloadsEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            dataStoreManager.setSmartDownloadsEnabled(enabled)
+            if (enabled) runSmartDownloadsNow() else songRepository.clearSmartDownloads()
+        }
+    }
+
+    fun setSmartDownloadsCount(count: Int) {
+        viewModelScope.launch {
+            dataStoreManager.setSmartDownloadsCount(count)
+            if (dataStoreManager.smartDownloadsEnabled.first() == DataStoreManager.TRUE) runSmartDownloadsNow()
+        }
+    }
+
+    /** A change made here runs a pass at once. Off an unmetered network it waits for the next app open instead. */
+    private suspend fun runSmartDownloadsNow() {
+        if (dataStoreManager.localTrackingEnabled.first() != DataStoreManager.TRUE) return
+        if (!isOnUnmeteredNetwork()) {
+            // Zero lets the next app open on Wi-Fi run the pass straight away, not a day later.
+            dataStoreManager.setSmartDownloadsLastRun(0)
+            makeToast(getString(Res.string.smart_downloads_waiting_for_wifi))
+            return
+        }
+        val queued = songRepository.runSmartDownloads(dataStoreManager.smartDownloadsCount.first())
+        dataStoreManager.setSmartDownloadsLastRun(Clock.System.now().toEpochMilliseconds())
+        if (queued > 0) makeToast(formatString(Res.string.smart_downloads_downloading, queued))
+    }
+
     private fun getDiscordLoggedIn() {
         viewModelScope.launch {
             dataStoreManager.discordToken.collect { loggedIn ->
@@ -499,6 +601,10 @@ class SettingsViewModel(
     fun logOutLastfm() {
         viewModelScope.launch {
             dataStoreManager.setLastfmSession(sessionKey = "", username = "")
+            // Scrobbling is gated on the session, so logging out must clear it here — the same
+            // teardown setSpotifyLogIn and logOutDiscord already do. Doing it from the Settings
+            // row instead only works if the user happens to open Settings and scroll to that row.
+            dataStoreManager.setLastfmScrobbleEnabled(false)
         }
     }
 
@@ -762,7 +868,6 @@ class SettingsViewModel(
             dataStoreManager.aiApiKey.collect { aiApiKey ->
                 if (aiApiKey.isNotEmpty()) {
                     _isHasApiKey.value = true
-                    log("getAIApiKey: $aiApiKey")
                 } else {
                     _isHasApiKey.value = false
                 }
@@ -773,6 +878,11 @@ class SettingsViewModel(
     fun setAIApiKey(apiKey: String) {
         viewModelScope.launch {
             dataStoreManager.setAIApiKey(apiKey)
+            // An empty key IS the sign-out here — isHasApiKey is derived from aiApiKey.isNotEmpty()
+            // — so AI translation, which is gated on it, has to come off with it.
+            if (apiKey.isEmpty()) {
+                dataStoreManager.setUseAITranslation(false)
+            }
             getAIApiKey()
         }
     }
@@ -917,21 +1027,6 @@ class SettingsViewModel(
         }
     }
 
-    fun getTranslucentBottomBar() {
-        viewModelScope.launch {
-            dataStoreManager.translucentBottomBar.collect { translucentBottomBar ->
-                _translucentBottomBar.emit(translucentBottomBar)
-            }
-        }
-    }
-
-    fun setTranslucentBottomBar(translucentBottomBar: Boolean) {
-        viewModelScope.launch {
-            dataStoreManager.setTranslucentBottomBar(translucentBottomBar)
-            getTranslucentBottomBar()
-        }
-    }
-
     fun getThumbCacheSize(context: PlatformContext) {
         viewModelScope.launch {
             val diskCache = SingletonImageLoader.get(context).diskCache
@@ -966,6 +1061,23 @@ class SettingsViewModel(
         }
     }
 
+    private fun getLyricsOffsetMs() {
+        viewModelScope.launch {
+            dataStoreManager.lyricsOffsetMs.collect { offsetMs ->
+                _lyricsOffsetMs.emit(offsetMs)
+            }
+        }
+    }
+
+    // Deliberately does NOT re-call its getter the way the settings around it do: that getter
+    // collects forever, so calling it again on every write leaves another collector running for the
+    // life of the ViewModel. The one started in init already publishes this value.
+    fun setLyricsOffsetMs(offsetMs: Int) {
+        viewModelScope.launch {
+            dataStoreManager.setLyricsOffsetMs(offsetMs)
+        }
+    }
+
     fun getUseTranslation() {
         viewModelScope.launch {
             dataStoreManager.enableTranslateLyric.collect { useTranslation ->
@@ -996,6 +1108,42 @@ class SettingsViewModel(
         }
     }
 
+    private var japaneseDictionaryWaiter: Job? = null
+
+    /**
+     * Fetches the Japanese romanization dictionary if this platform needs one and does not have
+     * it yet. Called from the settings screen every time a saved selection includes Japanese, so
+     * a FAILED attempt is retried by simply confirming the dialog again; READY makes this a no-op.
+     * A download already running — the repository starts one by itself when it finds Japanese
+     * selected and the pack missing — is joined rather than skipped, so its outcome still gets a
+     * toast. Progress and outcome live in [japaneseDictionaryState], which the romanization row's
+     * subtitle watches. The download runs in the repository's own scope, so leaving Settings
+     * mid-way only loses the toast below, not the download.
+     */
+    fun downloadJapaneseDictionaryIfNeeded() {
+        if (japaneseDictionaryState.value == RomanizationDictionaryState.READY) return
+        // Saving the dialog again mid-download (say, to add Korean) would otherwise queue a
+        // second waiter and show the same toast twice. Checked against DOWNLOADING as well: a
+        // waiter outlives its download by the moment it takes to show the toast, and a save in
+        // that moment, after a failure, is a real retry.
+        if (japaneseDictionaryWaiter?.isActive == true &&
+            japaneseDictionaryState.value == RomanizationDictionaryState.DOWNLOADING
+        ) {
+            return
+        }
+        japaneseDictionaryWaiter = viewModelScope.launch {
+            // The state the download settled on, as the repository saw it end. Reading
+            // japaneseDictionaryState back afterwards could already show the next attempt.
+            when (lyricsRomanizerRepository.downloadJapaneseDictionary()) {
+                RomanizationDictionaryState.READY ->
+                    makeToast(getString(Res.string.romanization_japanese_dict_ready))
+                RomanizationDictionaryState.FAILED ->
+                    makeToast(getString(Res.string.romanization_japanese_dict_failed))
+                else -> {}
+            }
+        }
+    }
+
     fun getLocation() {
         viewModelScope.launch {
             dataStoreManager.location.collect { location ->
@@ -1016,14 +1164,6 @@ class SettingsViewModel(
         viewModelScope.launch {
             dataStoreManager.setLocation(location)
             getLocation()
-        }
-    }
-
-    fun getSaveRecentSongAndQueue() {
-        viewModelScope.launch {
-            dataStoreManager.saveRecentSongAndQueue.collect { saved ->
-                _saveRecentSongAndQueue.emit(saved)
-            }
         }
     }
 
@@ -1065,6 +1205,25 @@ class SettingsViewModel(
         }
     }
 
+    fun getRadioAudioOnly() {
+        viewModelScope.launch {
+            dataStoreManager.radioAudioOnly.collect { radioAudioOnly ->
+                _radioAudioOnly.emit(radioAudioOnly)
+            }
+        }
+    }
+
+    /**
+     * No re-collect after writing, unlike the settings above: [getRadioAudioOnly] already collects
+     * the DataStore flow, which emits again on every write. Calling the getter here would only
+     * stack a second collector on each toggle.
+     */
+    fun setRadioAudioOnly(audioOnly: Boolean) {
+        viewModelScope.launch {
+            dataStoreManager.setRadioAudioOnly(audioOnly)
+        }
+    }
+
     fun getSponsorBlockCategories() {
         viewModelScope.launch {
             dataStoreManager.getSponsorBlockCategories().let {
@@ -1090,11 +1249,7 @@ class SettingsViewModel(
     fun getQuality() {
         viewModelScope.launch {
             dataStoreManager.quality.collect { quality ->
-                if (QUALITY.items.any { it.toString() == quality }) {
-                    _quality.emit(quality)
-                } else {
-                    _quality.emit(QUALITY.items[0].toString())
-                }
+                _quality.emit(QUALITY.normalize(quality))
             }
         }
     }
@@ -1161,6 +1316,46 @@ class SettingsViewModel(
             cacheRepository.clearCache(Config.CANVAS_CACHE)
             makeToast(getString(Res.string.clear_canvas_cache))
             getCanvasCache()
+        }
+    }
+
+    fun clearListeningHistory() {
+        viewModelScope.launch {
+            // The sweep walks every container table and then the whole song table, and finishes with
+            // a VACUUM — seconds of work on a large library, and the screen would look frozen.
+            showLoadingDialog(getString(Res.string.clear_listening_history))
+            val removed =
+                try {
+                    // NonCancellable because the sweep is only coherent once it has finished: the
+                    // cached containers are deleted first and the songs they were holding alive
+                    // last, so a run stopped in between — the user leaving Settings is enough to do
+                    // it — has already dropped every cached playlist, album and artist and left the
+                    // songs behind. Nothing resumes it afterwards, so it has to run to the end.
+                    withContext(NonCancellable) { songRepository.clearHistoryAndOrphanedSongs() }
+                } catch (e: CancellationException) {
+                    // Not a failure, and it must not be swallowed: catching it breaks structured
+                    // concurrency, and it would put the generic error toast in front of a user whose
+                    // sweep had in fact just completed, inviting them to run the whole thing again.
+                    throw e
+                } catch (e: Throwable) {
+                    Logger.e(tag, "clearHistoryAndOrphanedSongs failed: ${e.stackTraceToString()}")
+                    null
+                } finally {
+                    // In a finally so a failure — or the user leaving the screen — cannot strand the
+                    // dialog on top of the app with no way to dismiss it.
+                    hideLoadingDialog()
+                }
+            if (removed == null) {
+                makeToast(getString(Res.string.error))
+                return@launch
+            }
+            // The taste reading in Library was written from the history just wiped; left behind, it
+            // would keep describing a listener the app no longer has any record of.
+            dataStoreManager.setTasteProfile(null)
+            makeToast(formatString(Res.string.clear_listening_history_done, removed))
+            // Only the database slice of the storage bar moved; getData() would also restart every
+            // collecting getter it owns.
+            calculateDataFraction(cacheRepository)?.let { _fraction.value = it }
         }
     }
 
@@ -1279,13 +1474,6 @@ class SettingsViewModel(
         }
     }
 
-    fun setSaveLastPlayed(b: Boolean) {
-        viewModelScope.launch {
-            dataStoreManager.setSaveRecentSongAndQueue(b)
-            getSaveRecentSongAndQueue()
-        }
-    }
-
     fun getPlayerCacheLimit() {
         viewModelScope.launch {
             dataStoreManager.maxSongCacheSize.collect {
@@ -1306,11 +1494,12 @@ class SettingsViewModel(
     val googleAccounts: StateFlow<LocalResource<List<GoogleAccountEntity>>> = _googleAccounts
 
     fun getAllGoogleAccount() {
-        Logger.w("getAllGoogleAccount", "getAllGoogleAccount: Go to function")
+        Logger.d("getAllGoogleAccount", "getAllGoogleAccount: Go to function")
         viewModelScope.launch {
             _googleAccounts.emit(LocalResource.Loading())
             accountRepository.getGoogleAccounts().collectLatest { accounts ->
-                Logger.w("getAllGoogleAccount", "getAllGoogleAccount: $accounts")
+                // Counts only: every account row carries the session cookie.
+                Logger.d("getAllGoogleAccount", "getAllGoogleAccount: ${accounts?.size ?: 0} saved account(s)")
                 if (!accounts.isNullOrEmpty()) {
                     _googleAccounts.emit(LocalResource.Success(accounts))
                 } else {
@@ -1319,7 +1508,7 @@ class SettingsViewModel(
                             .getAccountInfo(
                                 dataStoreManager.cookie.first(),
                             ).collect {
-                                Logger.w("getAllGoogleAccount", "getAllGoogleAccount: $it")
+                                Logger.d("getAllGoogleAccount", "getAllGoogleAccount: ${it.size} account(s) from YouTube")
                                 if (it.isNotEmpty()) {
                                     dataStoreManager.putString("AccountName", it.first().name)
                                     dataStoreManager.putString(
@@ -1343,14 +1532,16 @@ class SettingsViewModel(
                                                         ?.url ?: "",
                                                 cache = accountRepository.getYouTubeCookie(),
                                                 pageId = it.first().pageId,
+                                                authUser = it.first().authUser,
                                                 isUsed = true,
                                             ),
                                         ).singleOrNull()
                                         ?.let { account ->
-                                            Logger.w("getAllGoogleAccount", "inserted: $account")
+                                            Logger.d("getAllGoogleAccount", "inserted: $account")
                                         }
                                     getAllGoogleAccount()
                                 } else {
+                                    Logger.w("Auth", "YouTube: marked signed in, but the saved cookie returned no account — likely signed out or expired")
                                     _googleAccounts.emit(LocalResource.Success(emptyList()))
                                 }
                             }
@@ -1368,6 +1559,7 @@ class SettingsViewModel(
     ): Boolean {
         val currentCookie = dataStoreManager.cookie.first()
         val currentPageId = dataStoreManager.pageId.first()
+        val currentAuthUser = dataStoreManager.authUser.first()
         val currentLoggedIn = dataStoreManager.loggedIn.first() == DataStoreManager.TRUE
         try {
             runBlocking {
@@ -1381,14 +1573,14 @@ class SettingsViewModel(
                 ?.takeIf {
                     it.isNotEmpty()
                 }?.let { accountInfoList ->
-                    Logger.d("getAllGoogleAccount", "addAccount: $accountInfoList")
+                    Logger.d("getAllGoogleAccount", "addAccount: ${accountInfoList.size} account(s)")
                     accountRepository.getGoogleAccounts().lastOrNull()?.forEach {
-                        Logger.d("getAllGoogleAccount", "set used: $it start")
+                        Logger.d("getAllGoogleAccount", "set used: start")
                         accountRepository
                             .updateGoogleAccountUsed(it.email, false)
                             .singleOrNull()
                             ?.let {
-                                Logger.w("getAllGoogleAccount", "set used: $it")
+                                Logger.d("getAllGoogleAccount", "set used: $it")
                             }
                     }
                     dataStoreManager.putString("AccountName", accountInfoList.first().name)
@@ -1422,30 +1614,32 @@ class SettingsViewModel(
                                     isUsed = index == 0,
                                     netscapeCookie = cookieItem,
                                     pageId = account.pageId,
+                                    authUser = account.authUser,
                                 ),
                             ).firstOrNull()
                             ?.let {
-                                log("addAccount: $it", LogLevel.WARN)
+                                log("addAccount: inserted $it")
                             }
                     }
                     dataStoreManager.setLoggedIn(true)
-                    dataStoreManager.setCookie(cookie, accountInfoList.first().pageId)
+                    dataStoreManager.setCookie(cookie, accountInfoList.first().pageId, accountInfoList.first().authUser)
+                    Logger.i("Auth", "YouTube: signed in, ${accountInfoList.size} account(s) on this cookie")
                     getAllGoogleAccount()
                     getLoggedIn()
                     true
                 } ?: run {
-                Logger.w("getAllGoogleAccount", "addAccount: Account info is null")
+                Logger.w("Auth", "YouTube: sign-in failed, YouTube returned no account for this cookie")
                 runBlocking {
-                    dataStoreManager.setCookie(currentCookie, currentPageId)
+                    dataStoreManager.setCookie(currentCookie, currentPageId, currentAuthUser)
                     dataStoreManager.setLoggedIn(currentLoggedIn)
                 }
                 false
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            Logger.e("getAllGoogleAccount", "addAccount: ${e.message}")
+            Logger.e("Auth", "YouTube: sign-in failed: ${e.message}")
             runBlocking {
-                dataStoreManager.setCookie(currentCookie, currentPageId)
+                dataStoreManager.setCookie(currentCookie, currentPageId, currentAuthUser)
                 dataStoreManager.setLoggedIn(currentLoggedIn)
             }
             return false
@@ -1460,7 +1654,7 @@ class SettingsViewModel(
                         .updateGoogleAccountUsed(it.email, false)
                         .singleOrNull()
                         ?.let {
-                            Logger.w("getAllGoogleAccount", "set used: $it")
+                            Logger.d("getAllGoogleAccount", "set used: $it")
                         }
                 }
                 dataStoreManager.putString("AccountName", acc.name)
@@ -1469,13 +1663,14 @@ class SettingsViewModel(
                     .updateGoogleAccountUsed(acc.email, true)
                     .singleOrNull()
                     ?.let {
-                        Logger.w("getAllGoogleAccount", "set used: $it")
+                        Logger.d("getAllGoogleAccount", "set used: $it")
                     }
                 acc.netscapeCookie?.let { commonRepository.writeTextToFile(it, (getFileDir() + "/ytdlp-cookie.txt")) }.let {
                     Logger.d("getAllGoogleAccount", "addAccount: write cookie file: $it")
                 }
-                dataStoreManager.setCookie(acc.cache ?: "", acc.pageId)
+                dataStoreManager.setCookie(acc.cache ?: "", acc.pageId, acc.authUser)
                 dataStoreManager.setLoggedIn(true)
+                Logger.i("Auth", "YouTube: switched account")
                 delay(500)
                 getAllGoogleAccount()
                 getLoggedIn()
@@ -1485,13 +1680,18 @@ class SettingsViewModel(
                         .updateGoogleAccountUsed(it.email, false)
                         .singleOrNull()
                         ?.let {
-                            Logger.w("getAllGoogleAccount", "set used: $it")
+                            Logger.d("getAllGoogleAccount", "set used: $it")
                         }
                 }
                 dataStoreManager.putString("AccountName", "")
                 dataStoreManager.putString("AccountThumbUrl", "")
                 dataStoreManager.setLoggedIn(false)
                 dataStoreManager.setCookie("", null)
+                Logger.i("Auth", "YouTube: signed out")
+                // Mirroring follows needs a session to write to, so signing out clears the flag
+                // here rather than from the Settings row — same teardown as setSpotifyLogIn and
+                // logOutDiscord. Only this branch: acc != null is switching account, not logout.
+                dataStoreManager.setSyncFollowToYouTube(false)
                 delay(500)
                 getAllGoogleAccount()
                 getLoggedIn()
@@ -1508,6 +1708,8 @@ class SettingsViewModel(
             dataStoreManager.putString("AccountThumbUrl", "")
             dataStoreManager.setLoggedIn(false)
             dataStoreManager.setCookie("", null)
+            Logger.i("Auth", "YouTube: signed out of all accounts")
+            dataStoreManager.setSyncFollowToYouTube(false)
             delay(500)
             getAllGoogleAccount()
             getLoggedIn()
@@ -1558,11 +1760,258 @@ class SettingsViewModel(
         }
     }
 
+    private var _equalizerEnabled: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    val equalizerEnabled: StateFlow<Boolean> = _equalizerEnabled
+
+    fun setEqualizerEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            dataStoreManager.setEqualizerEnabled(enabled)
+        }
+    }
+
+    private var _equalizerType: MutableStateFlow<String> = MutableStateFlow(DataStoreManager.EQUALIZER_TYPE_BUILT_IN)
+    val equalizerType: StateFlow<String> = _equalizerType
+
+    fun setEqualizerType(type: String) {
+        viewModelScope.launch {
+            dataStoreManager.setEqualizerType(type)
+        }
+    }
+
+    private var _equalizerBands: MutableStateFlow<List<Float>> = MutableStateFlow(List(EQUALIZER_BAND_COUNT) { 0f })
+    val equalizerBands: StateFlow<List<Float>> = _equalizerBands
+
+    private var _equalizerPreamp: MutableStateFlow<Float> = MutableStateFlow(0f)
+    val equalizerPreamp: StateFlow<Float> = _equalizerPreamp
+
+    /** Raw `"<label>\n<gains>"` of the last imported AutoEq profile; the UI decides if it still applies. */
+    private var _equalizerAutoEqProfile: MutableStateFlow<String> = MutableStateFlow("")
+    val equalizerAutoEqProfile: StateFlow<String> = _equalizerAutoEqProfile
+
+    /**
+     * Guards the collectors below against being started twice.
+     *
+     * Two callers ask for them: [getData], which every visit to the settings screen runs, and the
+     * equalizer block itself, which asks on its own so it keeps working if it is ever hosted
+     * anywhere else. Both land on this same view model, and the collectors live in
+     * [viewModelScope] rather than in a composition — so without this, toggling the switch off and
+     * on left another five behind every time, each re-reading the preference file for a value
+     * three others were already publishing.
+     */
+    private var equalizerCollectorsStarted = false
+
+    fun getEqualizer() {
+        if (equalizerCollectorsStarted) return
+        equalizerCollectorsStarted = true
+        viewModelScope.launch {
+            launch {
+                dataStoreManager.equalizerEnabled.collect {
+                    _equalizerEnabled.emit(it == DataStoreManager.TRUE)
+                }
+            }
+            launch {
+                dataStoreManager.equalizerType.collect { _equalizerType.emit(it) }
+            }
+            launch {
+                dataStoreManager.equalizerBands.collect { stored ->
+                    // Stored blank means flat. Short or malformed input is padded rather than
+                    // rejected, so a curve saved by a future build with more bands still loads.
+                    val parsed = stored.split(",").mapNotNull { it.trim().toFloatOrNull() }
+                    _equalizerBands.emit(
+                        List(EQUALIZER_BAND_COUNT) { parsed.getOrElse(it) { 0f } },
+                    )
+                }
+            }
+            launch {
+                dataStoreManager.equalizerPreamp.collect { _equalizerPreamp.emit(it) }
+            }
+            launch {
+                dataStoreManager.equalizerAutoEqProfile.collect { _equalizerAutoEqProfile.emit(it) }
+            }
+        }
+    }
+
+    /**
+     * Store a whole curve at once.
+     *
+     * The whole list rather than one band at a time because a single drag sweeps across several
+     * bands, and because the per-band version had to read [_equalizerBands] to rebuild the list —
+     * a value that only updates once the write has been through storage, so two edits in quick
+     * succession could reinstate the first band's old gain.
+     */
+    fun setEqualizerBands(bandsDb: List<Float>) {
+        viewModelScope.launch {
+            dataStoreManager.setEqualizerBands(bandsDb)
+        }
+    }
+
+    /**
+     * Move the curve and its preamp together.
+     *
+     * These are two separate preference keys, so the player does briefly see one of them applied
+     * against the other's old value. The preamp goes first deliberately: that way the moment in
+     * between is the new headroom under the old curve — quieter — rather than a freshly boosted
+     * curve still running on the previous preset's headroom, which is the direction that clips.
+     */
+    fun applyEqualizerPreset(
+        bandsDb: List<Float>,
+        preampDb: Float,
+    ) {
+        viewModelScope.launch {
+            dataStoreManager.setEqualizerPreamp(preampDb)
+            dataStoreManager.setEqualizerBands(bandsDb)
+        }
+    }
+
+    fun setEqualizerPreamp(preampDb: Float) {
+        viewModelScope.launch {
+            dataStoreManager.setEqualizerPreamp(preampDb)
+        }
+    }
+
+    fun resetEqualizer() {
+        viewModelScope.launch {
+            dataStoreManager.setEqualizerBands(List(EQUALIZER_BAND_COUNT) { 0f })
+            dataStoreManager.setEqualizerPreamp(0f)
+        }
+    }
+
+    private var _delayEnabled: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    val delayEnabled: StateFlow<Boolean> = _delayEnabled
+
+    private var _delayTimeMs: MutableStateFlow<Int> = MutableStateFlow(DEFAULT_DELAY_TIME_MS)
+    val delayTimeMs: StateFlow<Int> = _delayTimeMs
+
+    private var _delayFeedback: MutableStateFlow<Float> = MutableStateFlow(DEFAULT_DELAY_FEEDBACK)
+    val delayFeedback: StateFlow<Float> = _delayFeedback
+
+    private var _delayMix: MutableStateFlow<Float> = MutableStateFlow(DEFAULT_DELAY_MIX)
+    val delayMix: StateFlow<Float> = _delayMix
+
+    private var _reverbEnabled: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    val reverbEnabled: StateFlow<Boolean> = _reverbEnabled
+
+    private var _reverbPreset: MutableStateFlow<ReverbPreset> = MutableStateFlow(ReverbPreset.HALL)
+    val reverbPreset: StateFlow<ReverbPreset> = _reverbPreset
+
+    private var _reverbMix: MutableStateFlow<Float> = MutableStateFlow(DEFAULT_REVERB_MIX)
+    val reverbMix: StateFlow<Float> = _reverbMix
+
+    /**
+     * Guards the effect collectors the same way [equalizerCollectorsStarted] guards the curve's.
+     *
+     * Same two callers, same trap: [getData] runs on every visit to the settings screen and the two
+     * effect blocks ask on their own so they keep working if they are ever hosted elsewhere. The
+     * collectors live in [viewModelScope] rather than in a composition, so without this every
+     * toggle of the switch would leave another seven behind.
+     */
+    private var audioEffectCollectorsStarted = false
+
+    fun getAudioEffects() {
+        if (audioEffectCollectorsStarted) return
+        audioEffectCollectorsStarted = true
+        viewModelScope.launch {
+            launch { dataStoreManager.delayEnabled.collect { _delayEnabled.emit(it == DataStoreManager.TRUE) } }
+            launch { dataStoreManager.delayTimeMs.collect { _delayTimeMs.emit(it) } }
+            launch { dataStoreManager.delayFeedback.collect { _delayFeedback.emit(it) } }
+            launch { dataStoreManager.delayMix.collect { _delayMix.emit(it) } }
+            launch { dataStoreManager.reverbEnabled.collect { _reverbEnabled.emit(it == DataStoreManager.TRUE) } }
+            launch {
+                dataStoreManager.reverbPreset.collect { stored ->
+                    // The store hands the name back unresolved on purpose, so the fallback lives
+                    // here: a room named by a build newer than this one has to land on something
+                    // playable rather than throw out of a collector and kill the whole block.
+                    _reverbPreset.emit(runCatching { ReverbPreset.valueOf(stored) }.getOrDefault(ReverbPreset.HALL))
+                }
+            }
+            launch { dataStoreManager.reverbMix.collect { _reverbMix.emit(it) } }
+        }
+    }
+
+    fun setDelayEnabled(enabled: Boolean) {
+        viewModelScope.launch { dataStoreManager.setDelayEnabled(enabled) }
+    }
+
+    fun setDelayTimeMs(timeMs: Int) {
+        viewModelScope.launch { dataStoreManager.setDelayTimeMs(timeMs) }
+    }
+
+    fun setDelayFeedback(feedback: Float) {
+        viewModelScope.launch { dataStoreManager.setDelayFeedback(feedback) }
+    }
+
+    fun setDelayMix(mix: Float) {
+        viewModelScope.launch { dataStoreManager.setDelayMix(mix) }
+    }
+
+    fun setReverbEnabled(enabled: Boolean) {
+        viewModelScope.launch { dataStoreManager.setReverbEnabled(enabled) }
+    }
+
+    fun setReverbPreset(preset: ReverbPreset) {
+        viewModelScope.launch { dataStoreManager.setReverbPreset(preset) }
+    }
+
+    fun setReverbMix(mix: Float) {
+        viewModelScope.launch { dataStoreManager.setReverbMix(mix) }
+    }
+
+    /**
+     * Move all three delay values together, in one coroutine.
+     *
+     * Three separate preference keys, so the player does briefly see one of them applied against
+     * the others' old values — the same seam [applyEqualizerPreset] has. Writing them from one
+     * launch at least keeps that window to a single pass instead of three racing ones, and no
+     * ordering of these three is dangerous the way the equalizer's preamp is: an echo caught
+     * mid-change is a wrong echo for a few milliseconds, never a clipped one.
+     */
+    fun applyDelayPreset(
+        timeMs: Int,
+        feedback: Float,
+        mix: Float,
+    ) {
+        viewModelScope.launch {
+            dataStoreManager.setDelayTimeMs(timeMs)
+            dataStoreManager.setDelayFeedback(feedback)
+            dataStoreManager.setDelayMix(mix)
+        }
+    }
+
+    private var _syncFollowToYouTube: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    val syncFollowToYouTube: StateFlow<Boolean> = _syncFollowToYouTube
+
+    fun getSyncFollowToYouTube() {
+        viewModelScope.launch {
+            dataStoreManager.syncFollowToYouTube.collect {
+                _syncFollowToYouTube.emit(it == DataStoreManager.TRUE)
+            }
+        }
+    }
+
+    fun setSyncFollowToYouTube(enabled: Boolean) {
+        viewModelScope.launch {
+            dataStoreManager.setSyncFollowToYouTube(enabled)
+            // Turning it on is a statement about the whole library: artists followed before the
+            // switch would otherwise never reach the account. Turning it off deliberately does
+            // NOT unsubscribe — stopping the mirroring is not the same as asking us to undo it.
+            if (enabled) {
+                // Runs silently. The only toast in this feature belongs to the Follow button on
+                // the artist screen, where the user performed the action and is waiting to see it
+                // take effect; a switch in Settings is not the place to report on a background
+                // sweep the user is not watching.
+                artistRepository.syncFollowedArtistsToYouTube().collect { }
+            }
+        }
+    }
+
     private var _spotifyLyrics: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val spotifyLyrics: StateFlow<Boolean> = _spotifyLyrics
 
     private var _spotifyCanvas: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val spotifyCanvas: StateFlow<Boolean> = _spotifyCanvas
+
+    private var _amAnimatedArtwork: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    val amAnimatedArtwork: StateFlow<Boolean> = _amAnimatedArtwork
 
     fun getSpotifyLyrics() {
         viewModelScope.launch {
@@ -1602,6 +2051,21 @@ class SettingsViewModel(
         }
     }
 
+    fun getAMAnimatedArtwork() {
+        viewModelScope.launch {
+            dataStoreManager.amAnimatedArtwork.collect {
+                _amAnimatedArtwork.emit(it == DataStoreManager.TRUE)
+            }
+        }
+    }
+
+    fun setAMAnimatedArtwork(enabled: Boolean) {
+        viewModelScope.launch {
+            dataStoreManager.setAMAnimatedArtwork(enabled)
+            getAMAnimatedArtwork()
+        }
+    }
+
     // Lấy giá trị của killServiceOnExit từ DataStore
     fun getKillServiceOnExit() {
         viewModelScope.launch {
@@ -1631,6 +2095,22 @@ class SettingsViewModel(
         viewModelScope.launch {
             dataStoreManager.setYoutubeSubtitleLanguage(language)
             getYoutubeSubtitleLanguage()
+        }
+    }
+
+    private fun getPreferredAudioLanguage() {
+        viewModelScope.launch {
+            dataStoreManager.preferredAudioLanguage.collect { language ->
+                _preferredAudioLanguage.emit(language)
+            }
+        }
+    }
+
+    // Does not re-call the getter, for the same reason as setLyricsOffsetMs: the collector started
+    // in init already publishes every write.
+    fun setPreferredAudioLanguage(language: String) {
+        viewModelScope.launch {
+            dataStoreManager.setPreferredAudioLanguage(language)
         }
     }
 
@@ -1703,6 +2183,9 @@ expect suspend fun restoreNative(
     getData: () -> Unit = {},
 )
 
+/** Reads the whole of a file the user picked: a content Uri on Android, a plain path on Desktop. */
+expect suspend fun readPickedFile(uri: Uri): ByteArray
+
 expect suspend fun backupNative(
     commonRepository: CommonRepository,
     uri: Uri,
@@ -1714,3 +2197,26 @@ expect fun getPackageName(): String
 expect fun getFileDir(): String
 
 expect fun changeLanguageNative(code: String)
+
+/** Number of equalizer bands, matching the ISO centres the desktop backend installs. */
+const val EQUALIZER_BAND_COUNT = 10
+
+/** Band centre labels, for display only — the backend owns the actual frequencies. */
+val EQUALIZER_BAND_LABELS = listOf("31", "62", "125", "250", "500", "1k", "2k", "4k", "8k", "16k")
+
+// The three delay defaults and the reverb mix repeat what DataStoreManagerImpl falls back to. They
+// exist here so the StateFlows start on the stored default rather than on a placeholder the
+// collector then corrects — otherwise the sliders draw once at 0 and visibly jump the moment the
+// preference file is read, which reads as the app losing the user's settings.
+
+/** Quarter-note-ish spacing at 150 bpm; see `DataStoreManagerImpl.delayTimeMs`. */
+const val DEFAULT_DELAY_TIME_MS = 400
+
+/** See `DataStoreManagerImpl.delayFeedback`. */
+const val DEFAULT_DELAY_FEEDBACK = 0.45f
+
+/** See `DataStoreManagerImpl.delayMix`. */
+const val DEFAULT_DELAY_MIX = 0.3f
+
+/** See `DataStoreManagerImpl.reverbMix`. */
+const val DEFAULT_REVERB_MIX = 0.35f

@@ -126,7 +126,6 @@
     <string name="developer_blog">Blog Pengembang</string>
     <string name="developer_blog_tagline">Baca catatan pengembang, tutorial &amp; cerita di balik layar</string>
     <string name="blog_promo_title">Sesuatu yang baru dari pengembang</string>
-    <string name="blog_promo_message">Saya baru saja meluncurkan blog pribadi saya di maxrave.dev — di sana saya membagikan kisah di balik SimpMusic, ulasan mendalam seputar teknologi musik, dan catatan teknis. Silakan baca jika Anda penasaran ✨</string>
     <string name="visit_blog">Kunjungi blog</string>
     <string name="paypal">PayPal</string>
     <string name="title">Judul</string>
@@ -163,11 +162,9 @@
     <string name="balance_media_loudness">Seimbangkan kenyaringan media</string>
     <string name="normalize_volume">Normalisasi Volume</string>
     <string name="audio">Audio</string>
-    <string name="no_equalizer">Perangkat Anda tidak memiliki ekualiser</string>
-    <string name="open_system_equalizer">Buka ekualiser sistem</string>
-    <string name="use_your_system_equalizer">Gunakan ekualiser sistem Anda</string>
     <string name="streaming_data_provider_piped">Penyedia data streaming (Piped)</string>
     <string name="itag">Itag</string>
+    <string name="extract_source">Ekstrak sumber</string>
     <string name="mime_type">Jenis Mime</string>
     <string name="bitrate">Laju bit</string>
     <string name="warning">Peringatan</string>
@@ -203,6 +200,7 @@
     <string name="categories_sponsor_block">Pilih perilaku lewati segmen</string>
     <string name="what_segments_will_be_skipped">Segmen apa saja yang akan dilewati</string>
     <string name="save">Simpan</string>
+    <string name="crop_cover">Potong cover</string>
     <string name="saved">Tersimpan</string>
     <string name="sponsor_block_intro">SponsorBlock adalah sistem yang bersumber dari banyak orang untuk melewatkan bagian video YouTube yang mengganggu.\nInformasi lebih lanjut: https://sponsor.ajay.app/\nDi SimpMusic, SponsorBlock hanya tersedia saat perangkat online</string>
     <string name="skip_sponsor_part_of_video">Lewati bagian sponsor dari video</string>
@@ -303,6 +301,8 @@
     <string name="your_music_is_always_up_to_date">MUSIK ANDA SELALU TERBARU</string>
     <string name="youtube_account">Akun YouTube</string>
     <string name="manage_your_youtube_accounts">Kelola Akun YouTube Anda</string>
+    <string name="sync_follow_to_youtube">Menyinkronkan "ikuti" dengan YouTube</string>
+    <string name="equalizer_description">Sesuaikan suara dengan kurva ten-band</string>
     <string name="no_account">Tidak ada akun</string>
     <string name="add_an_account">Tambahkan akun</string>
     <string name="signed_in">Masuk</string>
@@ -358,8 +358,6 @@
     <string name="theme_color_wallpaper">Wallpaper</string>
     <string name="theme_color_custom">Khusus</string>
     <string name="custom_color">Warna khusus</string>
-    <string name="translucent_bottom_navigation_bar">Bilah navigasi bawah tembus pandang</string>
-    <string name="you_can_see_the_content_below_the_bottom_bar">Anda dapat melihat konten di bawah bilah bawah</string>
     <string name="donation">Jika Anda menyukai pekerjaan saya, beri saya kopi</string>
     <string name="relax">Santai</string>
     <string name="sleep">Tidur</string>
@@ -381,6 +379,7 @@
     <string name="log_in_warning">YouTube Music sekarang mengharuskan Anda masuk untuk melakukan streaming musik, Piped Instance terkadang tidak dapat berfungsi juga. Anda harus masuk ke YouTube untuk mendapatkan pengalaman yang lebih baik dengan SimpMusic.</string>
     <string name="spotify_canvas_cache">Tembolok Kanvas Spotify</string>
     <string name="clear_canvas_cache">Hapus tembolok kanvas</string>
+    <string name="clear_listening_history_confirm">Statistik mendengarkan dan sumber daya yang tidak terpakai Anda akan dihapus. Tindakan ini tidak dapat dibatalkan — harap buat cadangan terlebih dahulu.</string>
     <string name="proxy">Proksi</string>
     <string name="proxy_description">Gunakan Proksi untuk melewati pemblokiran konten wilayah</string>
     <string name="proxy_type">Jenis proksi</string>
@@ -441,7 +440,7 @@
     <string name="ai_api_key">Kunci API AI Anda</string>
     <string name="invalid_api_key">Kunci API tidak valid</string>
     <string name="custom_ai_model_id">AI Model Khsusus</string>
-    <string name="default_models">Model bawaan adalah \"gemini-2.0-flash\" dan \"gpt-4o\"</string>
+    <string name="default_models">Model bawaan adalah "gemini-2.0-flash" dan "gpt-4o"</string>
     <string name="invalid">Tidak valid</string>
     <string name="custom_model_id_messages">Harap masukkan Model ID yang sesuai dari penyedia AI Anda.</string>
     <string name="favorite_podcasts">Podcast favorit</string>
@@ -511,8 +510,6 @@
     <string name="enable_rich_presence">Aktifkan rich presence</string>
     <string name="rich_presence_info">Tampilkan informasi sesi media di profil Discord Anda</string>
     <string name="youtube_liked_music">Musik yang Disukai di YouTube</string>
-    <string name="keep_service_alive">Jaga layanan tetap aktif</string>
-    <string name="keep_service_alive_description">Jaga agar layanan pemutar musik tetap aktif untuk menghindari dihentikan oleh sistem</string>
     <string name="keep_your_youtube_playlist_offline">Tetap tampilkan daftar putar YouTube Anda saat offline</string>
     <string name="keep_your_youtube_playlist_offline_description">Simpan daftar putar YouTube Anda ke lokal dan simpan untuk ditampilkan saat offline</string>
     <string name="combine_local_and_youtube_liked_songs">Ganti Favorit dengan Disukai di YouTube saat masuk</string>
@@ -561,4 +558,21 @@
     <string name="listen_to_downloaded">Dengarkan musik yang sudah diunduh</string>
     <string name="playing_on_device">Memutar pada %1$s</string>
     <string name="not_available_while_casting">Tidak tersedia saat melakukan casting</string>
+    <!-- Listen Together -->
+    <string name="wrapped_recap_month">Rekap %1$s</string>
+    <string name="wrapped_recap_month_year">Rekap %1$s %2$s</string>
+    <string name="wrapped_recap_subtitle">Lagu teratas Anda pada bulan itu</string>
+    <string name="wrapped_recap_empty">Belum ada bulan yang cukup untuk mendengarkannya</string>
+    <string name="month_full_jan">Januari</string>
+    <string name="month_full_feb">Februari</string>
+    <string name="month_full_mar">Maret</string>
+    <string name="month_full_apr">April</string>
+    <string name="month_full_may">Mei</string>
+    <string name="month_full_jun">Juni</string>
+    <string name="month_full_jul">Juli</string>
+    <string name="month_full_aug">Agustus</string>
+    <string name="month_full_sep">September</string>
+    <string name="month_full_oct">Oktober</string>
+    <string name="month_full_nov">November</string>
+    <string name="month_full_dec">Desember</string>
 </resources>
